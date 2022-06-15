@@ -4,7 +4,7 @@ A simple x86_64 kernel
 
 ## Plans
 - [x] Boot using limine
-- [ ] Memory management
+- [x] Memory management
 - [ ] Multitasking
 - [ ] Interrupts/syscalls
 - [ ] Console input/output
