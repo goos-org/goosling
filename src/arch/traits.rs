@@ -12,11 +12,6 @@ pub trait PageTableTrait {
     fn get_physical_addr(&self, virtual_addr: usize) -> Option<usize>;
 }
 
-pub trait CpuStateTrait {
-    fn save() -> Self;
-    fn load(&self);
-}
-
 pub trait UtilTrait {
     fn init() -> Result<(), Error>;
     fn halt_loop() -> !;
@@ -32,4 +27,5 @@ pub trait InterruptManagerTrait {
     type InterruptTable: InterruptTableTrait;
     fn set_interrupt_table(interrupt_table: &Self::InterruptTable) -> Result<(), Error>;
     fn get_interrupt_table<'a>() -> Result<&'a mut Self::InterruptTable, Error>;
+    fn enable_interrupts();
 }

@@ -4,17 +4,15 @@
 
 pub mod arch;
 pub mod memory;
-pub mod tasks;
 pub mod terminals;
 
 use crate::arch::native::{
     ExceptionStackFrame, InterruptTable, InterruptTableDescriptor, PagingManager, Util,
 };
 use crate::arch::traits::{
-    CpuStateTrait, InterruptManagerTrait, InterruptTableTrait, PageTableTrait, PagingManagerTrait,
-    UtilTrait,
+    InterruptManagerTrait, InterruptTableTrait, PageTableTrait, PagingManagerTrait, UtilTrait,
 };
-use crate::arch::x86_64::{CpuState, InterruptDescriptor, InterruptManager};
+use crate::arch::x86_64::{InterruptDescriptor, InterruptManager};
 use crate::arch::Error;
 use crate::memory::BitmapAllocator;
 use crate::terminals::Terminal;
@@ -173,49 +171,12 @@ extern "C" fn main() -> ! {
     terminal.info("Setting up IDT");
     let mut idt = InterruptTable::new();
     idt.set_interrupt_handler(0, interrupt_handler);
-    let mut bytes = [0u8; 20];
-    terminal.info_raw("Setting interrupt handler at 0x");
-    terminal.println((interrupt_handler as *const u8 as usize).numtoa_str(16, &mut bytes));
-    terminal.info_raw("IDT at 0x");
-    terminal.println(
-        (idt.descriptor.address as *mut InterruptDescriptor as usize).numtoa_str(16, &mut bytes),
-    );
-    let current_descriptor = InterruptTableDescriptor {
-        address: idt.descriptor.address,
-        size: idt.descriptor.size,
-    };
     InterruptManager::set_interrupt_table(&idt).unwrap_or_else(|_| {
         terminal.fail("Failed to set interrupt table");
         Util::halt_loop();
     });
+    InterruptManager::enable_interrupts();
     terminal.ok("IDT set");
-    let new_descriptor = InterruptTableDescriptor {
-        address: slice_from_raw_parts_mut(core::ptr::null_mut(), 4096),
-        size: 0,
-    };
-    unsafe {
-        asm!(
-            "sidt [{0}]",
-            in(reg) &new_descriptor as *const InterruptTableDescriptor
-        );
-    }
-    if new_descriptor != current_descriptor {
-        terminal.fail_raw("Failed to set interrupt table (descriptors dumped at 0x");
-        terminal.print(
-            (&current_descriptor as *const InterruptTableDescriptor as usize)
-                .numtoa_str(16, &mut bytes),
-        );
-        terminal.print(" and 0x");
-        terminal.print(
-            (&new_descriptor as *const InterruptTableDescriptor as usize)
-                .numtoa_str(16, &mut bytes),
-        );
-        terminal.println(")");
-        Util::halt_loop();
-    }
-    unsafe {
-        asm!("int 0x00");
-    }
 
     Util::halt_loop();
 }

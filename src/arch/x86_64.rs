@@ -189,106 +189,6 @@ impl traits::PageTableTrait for PageTable {
     }
 }
 
-#[repr(C, align(8))]
-pub struct CpuState {
-    pub rsp: u64,
-    pub rbp: u64,
-    pub rax: u64,
-    pub rbx: u64,
-    pub rcx: u64,
-    pub rdx: u64,
-    pub rsi: u64,
-    pub rdi: u64,
-    pub r8: u64,
-    pub r9: u64,
-    pub r10: u64,
-    pub r11: u64,
-    pub r12: u64,
-    pub r13: u64,
-    pub r14: u64,
-    pub r15: u64,
-    pub simd: *mut SimdState,
-}
-impl CpuStateTrait for CpuState {
-    fn save() -> Self {
-        unsafe {
-            let simd_size = 512;
-            let rsp;
-            asm!("mov {0}, rsp", out(reg) rsp);
-            let rbp;
-            asm!("mov {0}, rbp", out(reg) rbp);
-            let rax;
-            asm!("mov {0}, rax", out(reg) rax);
-            let rbx;
-            asm!("mov {0}, rbx", out(reg) rbx);
-            let rcx;
-            asm!("mov {0}, rcx", out(reg) rcx);
-            let rdx;
-            asm!("mov {0}, rdx", out(reg) rdx);
-            let rsi;
-            asm!("mov {0}, rsi", out(reg) rsi);
-            let rdi;
-            asm!("mov {0}, rdi", out(reg) rdi);
-            let r8;
-            asm!("mov {0}, r8", out(reg) r8);
-            let r9;
-            asm!("mov {0}, r9", out(reg) r9);
-            let r10;
-            asm!("mov {0}, r10", out(reg) r10);
-            let r11;
-            asm!("mov {0}, r11", out(reg) r11);
-            let r12;
-            asm!("mov {0}, r12", out(reg) r12);
-            let r13;
-            asm!("mov {0}, r13", out(reg) r13);
-            let r14;
-            asm!("mov {0}, r14", out(reg) r14);
-            let r15;
-            asm!("mov {0}, r15", out(reg) r15);
-            CpuState {
-                rsp,
-                rbp,
-                rax,
-                rbx,
-                rcx,
-                rdx,
-                rsi,
-                rdi,
-                r8,
-                r9,
-                r10,
-                r11,
-                r12,
-                r13,
-                r14,
-                r15,
-                simd: SimdState::alloc(simd_size),
-            }
-        }
-    }
-
-    fn load(&self) {
-        unsafe {
-            asm!("mov rsp, {0}", in(reg) self.rsp);
-            asm!("mov rbp, {0}", in(reg) self.rbp);
-            asm!("mov rax, {0}", in(reg) self.rax);
-            asm!("mov rbx, {0}", in(reg) self.rbx);
-            asm!("mov rcx, {0}", in(reg) self.rcx);
-            asm!("mov rdx, {0}", in(reg) self.rdx);
-            asm!("mov rsi, {0}", in(reg) self.rsi);
-            asm!("mov rdi, {0}", in(reg) self.rdi);
-            asm!("mov r8, {0}", in(reg) self.r8);
-            asm!("mov r9, {0}", in(reg) self.r9);
-            asm!("mov r10, {0}", in(reg) self.r10);
-            asm!("mov r11, {0}", in(reg) self.r11);
-            asm!("mov r12, {0}", in(reg) self.r12);
-            asm!("mov r13, {0}", in(reg) self.r13);
-            asm!("mov r14, {0}", in(reg) self.r14);
-            asm!("mov r15, {0}", in(reg) self.r15);
-        }
-    }
-}
-
 #[repr(C, align(64))]
 pub struct SimdState {
     pub data: [u8],
@@ -370,10 +270,15 @@ impl InterruptDescriptor {
     }
 }
 
-#[derive(PartialEq)]
+#[repr(C, packed)]
 pub struct InterruptTableDescriptor {
     pub size: u16,
-    pub address: *mut [InterruptDescriptor],
+    pub address: *mut InterruptDescriptor,
+}
+impl PartialEq for InterruptTableDescriptor {
+    fn eq(&self, other: &Self) -> bool {
+        self.size == other.size && self.address as usize == other.address as usize
+    }
 }
 
 pub struct InterruptTable {
@@ -383,8 +288,8 @@ impl InterruptTableTrait for InterruptTable {
     type HandlerFn = extern "x86-interrupt" fn(ExceptionStackFrame);
 
     fn set_interrupt_handler(&mut self, interrupt_num: usize, handler: Self::HandlerFn) {
-        (unsafe { &mut *(self.descriptor.address) })[interrupt_num] =
-            InterruptDescriptor::new(handler, 0x28, 0, 0b1110, 0);
+        (unsafe { &mut *(slice_from_raw_parts_mut(self.descriptor.address, 4096)) })
+            [interrupt_num] = InterruptDescriptor::new(handler, 0x28, 0, 0b1110, 0);
     }
 
     fn new() -> Self {
@@ -397,7 +302,7 @@ impl InterruptTableTrait for InterruptTable {
 
         let descriptor = InterruptTableDescriptor {
             size: 0xFFE,
-            address: data,
+            address: data as *mut InterruptDescriptor,
         };
         Self { descriptor }
     }
@@ -416,5 +321,11 @@ impl InterruptManagerTrait for InterruptManager {
 
     fn get_interrupt_table<'a>() -> Result<&'a mut Self::InterruptTable, Error> {
         todo!()
+    }
+
+    fn enable_interrupts() {
+        unsafe {
+            asm!("sti", options(nostack, nomem));
+        }
     }
 }
