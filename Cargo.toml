@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 limine = "0.1.6"
+numtoa = "0.2.4"

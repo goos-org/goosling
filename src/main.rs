@@ -1,20 +1,221 @@
+#![feature(abi_x86_interrupt)]
 #![no_std]
 #![no_main]
 
-use limine::LimineMmapRequest;
+pub mod arch;
+pub mod memory;
+pub mod tasks;
+pub mod terminals;
 
-#[used]
-static MMAP: LimineMmapRequest = LimineMmapRequest::new(0);
+use crate::arch::native::{
+    ExceptionStackFrame, InterruptTable, InterruptTableDescriptor, PagingManager, Util,
+};
+use crate::arch::traits::{
+    CpuStateTrait, InterruptManagerTrait, InterruptTableTrait, PageTableTrait, PagingManagerTrait,
+    UtilTrait,
+};
+use crate::arch::x86_64::{CpuState, InterruptDescriptor, InterruptManager};
+use crate::arch::Error;
+use crate::memory::BitmapAllocator;
+use crate::terminals::Terminal;
+use core::arch::asm;
+use core::ptr::slice_from_raw_parts_mut;
+use limine::{LimineMemoryMapEntryType, LimineMmapRequest, LimineTerminal, LimineTerminalRequest};
+use numtoa::NumToA;
+
+static MMAP_REQUEST: LimineMmapRequest = LimineMmapRequest::new(0);
+static TERMINAL_REQUEST: LimineTerminalRequest = LimineTerminalRequest::new(0);
+
+fn pretty_print_size<TermWrite: Fn(&LimineTerminal, &str)>(
+    size: usize,
+    terminal: &Terminal<TermWrite>,
+) {
+    let mut bytes = [0u8; 20];
+    if size < 1024 {
+        terminal.print(size.numtoa_str(10, &mut bytes));
+        terminal.print("B total");
+    } else if size < 1024 * 1024 {
+        terminal.print((size / 1024).numtoa_str(10, &mut bytes));
+        terminal.print("KiB, ");
+        terminal.print((size % 1024).numtoa_str(10, &mut bytes));
+        terminal.print("B");
+    } else if size < 1024 * 1024 * 1024 {
+        terminal.print((size / 1024 / 1024).numtoa_str(10, &mut bytes));
+        terminal.print("MiB, ");
+        terminal.print(((size % (1024 * 1024)) / 1024).numtoa_str(10, &mut bytes));
+        terminal.print("KiB");
+    } else {
+        terminal.print((size / 1024 / 1024 / 1024).numtoa_str(10, &mut bytes));
+        terminal.print("GiB, ");
+        terminal.print(((size % (1024 * 1024 * 1024)) / 1024 / 1024).numtoa_str(10, &mut bytes));
+        terminal.print("MiB");
+    }
+}
 
 #[panic_handler]
-fn panic(_info: &core::panic::PanicInfo) -> ! {
-    loop {}
+fn panic(info: &core::panic::PanicInfo) -> ! {
+    let term = {
+        let response = TERMINAL_REQUEST
+            .get_response()
+            .get()
+            .unwrap_or_else(|| Util::halt_loop());
+        let terminals = response.terminals().unwrap_or_else(|| Util::halt_loop());
+        let term = terminals.get(0).unwrap_or_else(|| Util::halt_loop());
+        Terminal::new(term, response.write().unwrap_or_else(|| Util::halt_loop()))
+    };
+    term.fail("Rust panicked");
+    term.fail(
+        info.payload()
+            .downcast_ref::<&str>()
+            .unwrap_or(&"No panic message"),
+    );
+    Util::halt_loop();
+}
+
+extern "x86-interrupt" fn interrupt_handler(stack_frame: ExceptionStackFrame) {
+    let term = {
+        let response = TERMINAL_REQUEST
+            .get_response()
+            .get()
+            .unwrap_or_else(|| Util::halt_loop());
+        let terminals = response.terminals().unwrap_or_else(|| Util::halt_loop());
+        let term = terminals.get(0).unwrap_or_else(|| Util::halt_loop());
+        Terminal::new(term, response.write().unwrap_or_else(|| Util::halt_loop()))
+    };
+    term.ok("Interrupt received");
 }
 
 #[no_mangle]
 extern "C" fn main() -> ! {
-    unsafe {
-        core::ptr::read_volatile(&MMAP);
+    let terminal = TERMINAL_REQUEST.get_response().get().unwrap();
+    let terminals = terminal.terminals().unwrap();
+    let term_write = terminal.write().unwrap();
+    let terminal = Terminal::new(&terminals[0], term_write);
+    terminal.info("Hello, world!");
+    terminal.ok("Booted from Limine");
+    terminal.ok("Initialized terminal");
+    terminal.info("Initializing cpu");
+    Util::init().unwrap_or_else(|e| {
+        match e {
+            Error::Unsupported => {
+                terminal.fail("Failed to initialize cpu: unsupported cpu");
+            }
+            _ => {
+                terminal.fail("Failed to initialize cpu: unknown error");
+            }
+        }
+        Util::halt_loop();
+    });
+    terminal.ok("Initialized cpu");
+    terminal.info("Testing paging");
+    terminal.info("Getting page table");
+    let page_table = PagingManager::get_page_table().unwrap_or_else(|_| {
+        terminal.fail("Failed to get page table");
+        Util::halt_loop();
+    });
+    terminal.ok("Got page table");
+    let page_0 = page_table.get_physical_addr(0x1000).unwrap_or_else(|| {
+        terminal.fail("Failed to get page 0");
+        Util::halt_loop();
+    });
+    if page_0 == 0x1000 {
+        terminal.ok("Paging correctly initialized");
+    } else {
+        terminal.fail("Paging initialized incorrectly");
+        Util::halt_loop();
     }
-    panic!("Hello, world!");
+    terminal.info("Reading memory map");
+    let mmap = MMAP_REQUEST.get_response().get().unwrap_or_else(|| {
+        terminal.fail("Failed to read memory map");
+        Util::halt_loop();
+    });
+    let mmap = mmap.mmap().unwrap_or_else(|| {
+        terminal.fail("Failed to read memory map");
+        Util::halt_loop();
+    });
+    terminal.ok("Read memory map");
+    terminal.info("Reading available memory");
+    let highest_mmap = mmap.last().unwrap_or_else(|| {
+        terminal.fail("Failed to read memory map");
+        Util::halt_loop();
+    });
+    let highest_mmap = highest_mmap.base + highest_mmap.len;
+    terminal.ok("Read available memory");
+
+    terminal.info("Allocating memory");
+    let allocator_size = highest_mmap / 4096 / 8;
+    let mut allocator_location = 0;
+    for entry in mmap {
+        if entry.typ == LimineMemoryMapEntryType::Usable && entry.len >= allocator_size {
+            allocator_location = entry.base;
+            break;
+        }
+    }
+    terminal.ok("Allocated memory");
+
+    terminal.info("Setting up bitmap allocator");
+    let mut allocator =
+        BitmapAllocator::new(allocator_location as *mut u8, allocator_size as usize);
+    for entry in mmap {
+        if entry.typ == LimineMemoryMapEntryType::Usable {
+            allocator.free_range(entry.base as usize, (entry.base + entry.len) as usize);
+        }
+    }
+
+    unsafe { memory::ALLOCATOR = Some(allocator) };
+    let allocator = unsafe { memory::ALLOCATOR.as_mut().unwrap() };
+
+    terminal.ok("Set up bitmap allocator");
+    terminal.info_raw("Free memory: ");
+    pretty_print_size(allocator.get_free() as usize, &terminal);
+    terminal.println("");
+
+    terminal.info("Setting up IDT");
+    let mut idt = InterruptTable::new();
+    idt.set_interrupt_handler(0, interrupt_handler);
+    let mut bytes = [0u8; 20];
+    terminal.info_raw("Setting interrupt handler at 0x");
+    terminal.println((interrupt_handler as *const u8 as usize).numtoa_str(16, &mut bytes));
+    terminal.info_raw("IDT at 0x");
+    terminal.println(
+        (idt.descriptor.address as *mut InterruptDescriptor as usize).numtoa_str(16, &mut bytes),
+    );
+    let current_descriptor = InterruptTableDescriptor {
+        address: idt.descriptor.address,
+        size: idt.descriptor.size,
+    };
+    InterruptManager::set_interrupt_table(&idt).unwrap_or_else(|_| {
+        terminal.fail("Failed to set interrupt table");
+        Util::halt_loop();
+    });
+    terminal.ok("IDT set");
+    let new_descriptor = InterruptTableDescriptor {
+        address: slice_from_raw_parts_mut(core::ptr::null_mut(), 4096),
+        size: 0,
+    };
+    unsafe {
+        asm!(
+            "sidt [{0}]",
+            in(reg) &new_descriptor as *const InterruptTableDescriptor
+        );
+    }
+    if new_descriptor != current_descriptor {
+        terminal.fail_raw("Failed to set interrupt table (descriptors dumped at 0x");
+        terminal.print(
+            (&current_descriptor as *const InterruptTableDescriptor as usize)
+                .numtoa_str(16, &mut bytes),
+        );
+        terminal.print(" and 0x");
+        terminal.print(
+            (&new_descriptor as *const InterruptTableDescriptor as usize)
+                .numtoa_str(16, &mut bytes),
+        );
+        terminal.println(")");
+        Util::halt_loop();
+    }
+    unsafe {
+        asm!("int 0x00");
+    }
+
+    Util::halt_loop();
 }

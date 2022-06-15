@@ -26,6 +26,6 @@ kernel: setup
 	cp target/x86_64-goosling/debug/goosling build/kernel
 
 limine: setup
-	rm -rf build/limine
-	cd build && git clone --branch v3.5.3-binary https://github.com/limine-bootloader/limine.git
-	cd build/limine && make limine-deploy
+	if ! [ -d "build/limine" ]; then rm -rf build/limine; \
+	cd build && git clone --branch v3.5.3-binary https://github.com/limine-bootloader/limine.git; \
+	cd limine && make limine-deploy; fi
