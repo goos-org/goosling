@@ -6,18 +6,14 @@ pub mod arch;
 pub mod memory;
 pub mod terminals;
 
-use crate::arch::native::{
-    ExceptionStackFrame, InterruptTable, InterruptTableDescriptor, PagingManager, Util,
-};
+use crate::arch::native::{ExceptionStackFrame, InterruptTable, PagingManager, Util};
 use crate::arch::traits::{
     InterruptManagerTrait, InterruptTableTrait, PageTableTrait, PagingManagerTrait, UtilTrait,
 };
-use crate::arch::x86_64::{InterruptDescriptor, InterruptManager};
+use crate::arch::x86_64::InterruptManager;
 use crate::arch::Error;
 use crate::memory::BitmapAllocator;
 use crate::terminals::Terminal;
-use core::arch::asm;
-use core::ptr::slice_from_raw_parts_mut;
 use limine::{LimineMemoryMapEntryType, LimineMmapRequest, LimineTerminal, LimineTerminalRequest};
 use numtoa::NumToA;
 
