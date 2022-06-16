@@ -29,3 +29,8 @@ pub trait InterruptManagerTrait {
     fn get_interrupt_table<'a>() -> Result<&'a mut Self::InterruptTable, Error>;
     fn enable_interrupts();
 }
+
+pub trait CpuStateTrait {
+    fn save(ip: usize, sp: usize) -> Self;
+    fn restore(self);
+}

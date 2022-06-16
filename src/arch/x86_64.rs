@@ -1,11 +1,11 @@
 use crate::arch::traits::{CpuStateTrait, InterruptManagerTrait, InterruptTableTrait, UtilTrait};
-use crate::arch::{traits, Error};
-use crate::memory;
+use crate::arch::Error;
+use crate::{memory, PageTableTrait, PagingManagerTrait};
 use core::arch::asm;
 use core::ptr::slice_from_raw_parts_mut;
 
 pub struct PagingManager {}
-impl traits::PagingManagerTrait for PagingManager {
+impl PagingManagerTrait for PagingManager {
     type PageTable = PageTable;
     fn set_page_table(page_table: &Self::PageTable) -> Result<(), Error> {
         if page_table as *const PageTable as u64 % 0x1000 != 0 {
@@ -86,7 +86,7 @@ impl PageTableEntry {
 pub struct PageTable {
     pml4: [u64; 512],
 }
-impl traits::PageTableTrait for PageTable {
+impl PageTableTrait for PageTable {
     fn map_page(&mut self, virtual_addr: usize, physical_addr: usize) {
         unsafe {
             let pml4_index = virtual_addr >> 39;
@@ -327,5 +327,60 @@ impl InterruptManagerTrait for InterruptManager {
         unsafe {
             asm!("sti", options(nostack, nomem));
         }
+    }
+}
+
+#[derive(Clone)]
+pub struct CpuState {
+    pub rip: u64,
+    pub rsp: u64,
+    pub gprs: [u64; 15],
+    pub rflags: u64,
+    pub segments: [u64; 6],
+    pub simd: *mut u8,
+    pub simd_size: usize,
+}
+impl CpuState {
+    fn zero() -> Self {
+        Self {
+            rip: 0,
+            rsp: 0,
+            gprs: [0; 15],
+            rflags: 0,
+            segments: [0; 6],
+            simd: core::ptr::null_mut(),
+            simd_size: 0,
+        }
+    }
+}
+impl CpuStateTrait for CpuState {
+    fn save(ip: usize, sp: usize) -> Self {
+        unsafe {
+            asm!(
+                "add rsp, 128",
+                "push rax",
+                "push rbx",
+                "push rcx",
+                "push rdx",
+                "push rsi",
+                "push rdi",
+                "push rbp",
+                "push r8",
+                "push r9",
+                "push r10",
+                "push r11",
+                "push r12",
+                "push r13",
+                "push r14",
+                "push r15",
+            );
+            let mut address: usize;
+            asm!("mov {0}, rsp", out(reg) address);
+            address -= core::mem::size_of::<Self>();
+            (&*(address as *mut Self)).clone()
+        }
+    }
+    fn restore(self) {
+        todo!()
     }
 }
