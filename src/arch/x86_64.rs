@@ -1,8 +1,16 @@
-use crate::arch::traits::{CpuStateTrait, InterruptManagerTrait, InterruptTableTrait, UtilTrait};
+use crate::arch::traits::{
+    InterruptInfoTrait, InterruptManagerTrait, InterruptTableTrait, UtilTrait,
+};
 use crate::arch::Error;
 use crate::{memory, PageTableTrait, PagingManagerTrait};
-use core::arch::asm;
+use core::arch::{asm, global_asm};
 use core::ptr::slice_from_raw_parts_mut;
+use seq_macro::seq;
+
+extern "x86-interrupt" {
+    fn int_0();
+    fn int_1();
+}
 
 pub struct PagingManager {}
 impl PagingManagerTrait for PagingManager {
@@ -242,7 +250,7 @@ pub struct InterruptDescriptor {
 }
 impl InterruptDescriptor {
     pub fn new(
-        handler: extern "x86-interrupt" fn(ExceptionStackFrame),
+        handler: *mut u8,
         segment: usize,
         ist: u8,
         gate_type: u8,
@@ -281,15 +289,70 @@ impl PartialEq for InterruptTableDescriptor {
     }
 }
 
+seq!(N in 0..=255 { global_asm!(stringify!(int_~N: push N; jmp int_handle)); });
+global_asm!(include_str!("interrupt.asm"));
+
+#[no_mangle]
+extern "C" fn int_handle_rust(info: &mut InterruptInfo) {
+    let handler = InterruptManager::get_interrupt_table()
+        .unwrap()
+        .get_handler(info.interrupt_number as usize)
+        .unwrap_or(|_| Util::halt_loop());
+    handler(info);
+}
+
+pub struct InterruptInfo {
+    ss: u64,
+    rsp: u64,
+    rflags: u64,
+    cs: u64,
+    rip: u64,
+    error_code: u64,
+    interrupt_number: u64,
+    rax: u64,
+    rbx: u64,
+    rcx: u64,
+    rdx: u64,
+    rsi: u64,
+    rdi: u64,
+    rbp: u64,
+    r8: u64,
+    r9: u64,
+    r10: u64,
+    r11: u64,
+    r12: u64,
+    r13: u64,
+    r14: u64,
+    r15: u64,
+}
+impl InterruptInfoTrait for InterruptInfo {
+    fn interrupt_num(&self) -> usize {
+        self.interrupt_number as usize
+    }
+
+    fn error_code(&self) -> usize {
+        self.error_code as usize
+    }
+}
+
 pub struct InterruptTable {
     pub descriptor: InterruptTableDescriptor,
+    pub handlers: [Option<fn(&mut InterruptInfo)>; 256],
+}
+impl InterruptTable {
+    fn get_handler(&self, interrupt_number: usize) -> Option<fn(&mut InterruptInfo)> {
+        self.handlers[interrupt_number]
+    }
 }
 impl InterruptTableTrait for InterruptTable {
-    type HandlerFn = extern "x86-interrupt" fn(ExceptionStackFrame);
+    type InterruptInfo = InterruptInfo;
 
-    fn set_interrupt_handler(&mut self, interrupt_num: usize, handler: Self::HandlerFn) {
-        (unsafe { &mut *(slice_from_raw_parts_mut(self.descriptor.address, 4096)) })
-            [interrupt_num] = InterruptDescriptor::new(handler, 0x28, 0, 0b1110, 0);
+    fn set_interrupt_handler(
+        &mut self,
+        interrupt_num: usize,
+        handler: fn(&mut Self::InterruptInfo),
+    ) {
+        self.handlers[interrupt_num] = Some(handler);
     }
 
     fn new() -> Self {
@@ -300,87 +363,52 @@ impl InterruptTableTrait for InterruptTable {
             core::ptr::write_bytes(data as *mut InterruptDescriptor, 0, 4096);
         }
 
+        let int_size = (int_0 as *mut unsafe extern "x86-interrupt" fn() as *mut ()) as usize
+            - (int_1 as *mut unsafe extern "x86-interrupt" fn() as *mut ()) as usize;
+        unsafe {
+            for i in 0..256 {
+                (&mut *data)[i] = InterruptDescriptor::new(
+                    (int_0 as *mut unsafe extern "x86-interrupt" fn() as *mut u8).add(i * int_size),
+                    0x30,
+                    0,
+                    0xE,
+                    0,
+                );
+            }
+        }
+
         let descriptor = InterruptTableDescriptor {
             size: 0xFFE,
             address: data as *mut InterruptDescriptor,
         };
-        Self { descriptor }
+        Self {
+            descriptor,
+            handlers: [None; 256],
+        }
     }
 }
+
+static mut INTERRUPT_TABLE: Option<*mut InterruptTable> = None;
 
 pub struct InterruptManager {}
 impl InterruptManagerTrait for InterruptManager {
     type InterruptTable = InterruptTable;
 
-    fn set_interrupt_table(interrupt_table: &Self::InterruptTable) -> Result<(), Error> {
+    fn set_interrupt_table(interrupt_table: &mut Self::InterruptTable) -> Result<(), Error> {
         unsafe {
+            INTERRUPT_TABLE = Some(interrupt_table);
             asm!("lidt [{0}]", in(reg) &interrupt_table.descriptor as *const InterruptTableDescriptor);
         }
         Ok(())
     }
 
     fn get_interrupt_table<'a>() -> Result<&'a mut Self::InterruptTable, Error> {
-        todo!()
+        Ok(unsafe { &mut *INTERRUPT_TABLE.ok_or(Error::Uninitialized)? })
     }
 
     fn enable_interrupts() {
         unsafe {
             asm!("sti", options(nostack, nomem));
         }
-    }
-}
-
-#[derive(Clone)]
-pub struct CpuState {
-    pub rip: u64,
-    pub rsp: u64,
-    pub gprs: [u64; 15],
-    pub rflags: u64,
-    pub segments: [u64; 6],
-    pub simd: *mut u8,
-    pub simd_size: usize,
-}
-impl CpuState {
-    fn zero() -> Self {
-        Self {
-            rip: 0,
-            rsp: 0,
-            gprs: [0; 15],
-            rflags: 0,
-            segments: [0; 6],
-            simd: core::ptr::null_mut(),
-            simd_size: 0,
-        }
-    }
-}
-impl CpuStateTrait for CpuState {
-    fn save(ip: usize, sp: usize) -> Self {
-        unsafe {
-            asm!(
-                "add rsp, 128",
-                "push rax",
-                "push rbx",
-                "push rcx",
-                "push rdx",
-                "push rsi",
-                "push rdi",
-                "push rbp",
-                "push r8",
-                "push r9",
-                "push r10",
-                "push r11",
-                "push r12",
-                "push r13",
-                "push r14",
-                "push r15",
-            );
-            let mut address: usize;
-            asm!("mov {0}, rsp", out(reg) address);
-            address -= core::mem::size_of::<Self>();
-            (&*(address as *mut Self)).clone()
-        }
-    }
-    fn restore(self) {
-        todo!()
     }
 }

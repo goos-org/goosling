@@ -17,20 +17,24 @@ pub trait UtilTrait {
     fn halt_loop() -> !;
 }
 
+pub trait InterruptInfoTrait {
+    fn interrupt_num(&self) -> usize;
+    fn error_code(&self) -> usize;
+}
+
 pub trait InterruptTableTrait {
-    type HandlerFn;
-    fn set_interrupt_handler(&mut self, interrupt_num: usize, handler: Self::HandlerFn);
+    type InterruptInfo: InterruptInfoTrait;
+    fn set_interrupt_handler(
+        &mut self,
+        interrupt_num: usize,
+        handler: fn(&mut Self::InterruptInfo),
+    );
     fn new() -> Self;
 }
 
 pub trait InterruptManagerTrait {
     type InterruptTable: InterruptTableTrait;
-    fn set_interrupt_table(interrupt_table: &Self::InterruptTable) -> Result<(), Error>;
+    fn set_interrupt_table(interrupt_table: &mut Self::InterruptTable) -> Result<(), Error>;
     fn get_interrupt_table<'a>() -> Result<&'a mut Self::InterruptTable, Error>;
     fn enable_interrupts();
-}
-
-pub trait CpuStateTrait {
-    fn save(ip: usize, sp: usize) -> Self;
-    fn restore(self);
 }

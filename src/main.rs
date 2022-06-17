@@ -1,4 +1,5 @@
 #![feature(abi_x86_interrupt)]
+#![feature(fn_traits)]
 #![no_std]
 #![no_main]
 
@@ -6,7 +7,9 @@ pub mod arch;
 pub mod memory;
 pub mod terminals;
 
-use crate::arch::native::{ExceptionStackFrame, InterruptTable, PagingManager, Util};
+use crate::arch::native::{
+    ExceptionStackFrame, InterruptInfo, InterruptTable, PagingManager, Util,
+};
 use crate::arch::traits::{
     InterruptManagerTrait, InterruptTableTrait, PageTableTrait, PagingManagerTrait, UtilTrait,
 };
@@ -14,6 +17,7 @@ use crate::arch::x86_64::InterruptManager;
 use crate::arch::Error;
 use crate::memory::BitmapAllocator;
 use crate::terminals::Terminal;
+use core::arch::asm;
 use limine::{LimineMemoryMapEntryType, LimineMmapRequest, LimineTerminal, LimineTerminalRequest};
 use numtoa::NumToA;
 
@@ -66,7 +70,7 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
     Util::halt_loop();
 }
 
-extern "x86-interrupt" fn interrupt_handler(stack_frame: ExceptionStackFrame) {
+fn interrupt_handler(info: &mut InterruptInfo) {
     let term = {
         let response = TERMINAL_REQUEST
             .get_response()
@@ -76,7 +80,7 @@ extern "x86-interrupt" fn interrupt_handler(stack_frame: ExceptionStackFrame) {
         let term = terminals.get(0).unwrap_or_else(|| Util::halt_loop());
         Terminal::new(term, response.write().unwrap_or_else(|| Util::halt_loop()))
     };
-    term.ok("Interrupt received");
+    term.info("Interrupt received");
 }
 
 #[no_mangle]
@@ -164,15 +168,17 @@ extern "C" fn main() -> ! {
     pretty_print_size(allocator.get_free() as usize, &terminal);
     terminal.println("");
 
-    terminal.info("Setting up IDT");
     let mut idt = InterruptTable::new();
     idt.set_interrupt_handler(0, interrupt_handler);
-    InterruptManager::set_interrupt_table(&idt).unwrap_or_else(|_| {
+    InterruptManager::set_interrupt_table(&mut idt).unwrap_or_else(|_| {
         terminal.fail("Failed to set interrupt table");
         Util::halt_loop();
     });
     InterruptManager::enable_interrupts();
-    terminal.ok("IDT set");
+
+    unsafe {
+        asm!("int 0x00");
+    }
 
     Util::halt_loop();
 }
