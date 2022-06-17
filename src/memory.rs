@@ -1,3 +1,4 @@
+use core::alloc::{GlobalAlloc, Layout};
 use core::ptr::slice_from_raw_parts_mut;
 
 pub static mut ALLOCATOR: Option<BitmapAllocator> = None;
@@ -105,4 +106,29 @@ impl BitmapAllocator {
         }
         free * 4096
     }
+}
+
+#[global_allocator]
+static GLOBAL_ALLOCATOR: GlobalAllocator = GlobalAllocator {};
+
+pub struct GlobalAllocator {}
+unsafe impl GlobalAlloc for GlobalAllocator {
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        if layout.size() > 4096 {
+            panic!("alloc size too large");
+        } else {
+            let allocator = ALLOCATOR.as_mut().unwrap();
+            allocator.alloc().unwrap() as *mut u8
+        }
+    }
+
+    unsafe fn dealloc(&self, ptr: *mut u8, _layout: Layout) {
+        let allocator = ALLOCATOR.as_mut().unwrap();
+        allocator.free(ptr as usize);
+    }
+}
+
+#[alloc_error_handler]
+fn error_handler(_: Layout) -> ! {
+    panic!("Allocator error");
 }

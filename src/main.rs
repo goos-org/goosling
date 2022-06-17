@@ -1,7 +1,10 @@
 #![feature(abi_x86_interrupt)]
+#![feature(alloc_error_handler)]
 #![feature(fn_traits)]
 #![no_std]
 #![no_main]
+
+extern crate alloc;
 
 pub mod arch;
 pub mod memory;
@@ -17,6 +20,7 @@ use crate::arch::x86_64::InterruptManager;
 use crate::arch::Error;
 use crate::memory::BitmapAllocator;
 use crate::terminals::Terminal;
+use alloc::string::ToString;
 use core::arch::asm;
 use limine::{LimineMemoryMapEntryType, LimineMmapRequest, LimineTerminal, LimineTerminalRequest};
 use numtoa::NumToA;
@@ -62,11 +66,10 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
         Terminal::new(term, response.write().unwrap_or_else(|| Util::halt_loop()))
     };
     term.fail("Rust panicked");
-    term.fail(
-        info.payload()
-            .downcast_ref::<&str>()
-            .unwrap_or(&"No panic message"),
-    );
+    term.fail(info.payload().downcast_ref::<&str>().unwrap_or_else(|| {
+        term.info(info.to_string().as_str());
+        Util::halt_loop();
+    }));
     Util::halt_loop();
 }
 
