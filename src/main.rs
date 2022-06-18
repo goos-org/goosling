@@ -10,9 +10,7 @@ pub mod arch;
 pub mod memory;
 pub mod terminals;
 
-use crate::arch::native::{
-    ExceptionStackFrame, InterruptInfo, InterruptTable, PagingManager, Util,
-};
+use crate::arch::native::{ExceptionStackFrame, InterruptTable, PagingManager, Util};
 use crate::arch::traits::{
     InterruptManagerTrait, InterruptTableTrait, PageTableTrait, PagingManagerTrait, UtilTrait,
 };
@@ -73,7 +71,11 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
     Util::halt_loop();
 }
 
-fn interrupt_handler(info: &mut InterruptInfo) {
+fn interrupt_handler(
+    error_code: Option<usize>,
+    interrupt_number: usize,
+    instruction_pointer: &mut usize,
+) {
     let term = {
         let response = TERMINAL_REQUEST
             .get_response()

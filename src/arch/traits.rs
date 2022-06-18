@@ -1,4 +1,4 @@
-use crate::arch::Error;
+use crate::arch::{Error, InterruptHandler};
 
 pub trait PagingManagerTrait {
     type PageTable: PageTableTrait;
@@ -23,12 +23,7 @@ pub trait InterruptInfoTrait {
 }
 
 pub trait InterruptTableTrait {
-    type InterruptInfo: InterruptInfoTrait;
-    fn set_interrupt_handler(
-        &mut self,
-        interrupt_num: usize,
-        handler: fn(&mut Self::InterruptInfo),
-    );
+    fn set_interrupt_handler(&mut self, interrupt_num: usize, handler: InterruptHandler);
     fn new() -> Self;
 }
 

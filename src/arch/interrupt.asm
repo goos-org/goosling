@@ -15,6 +15,9 @@ int_handle:
     push r14
     push r15
     cld
+    mov rdi, [rsp + 136]
+    mov rsi, [rsp + 128]
+    mov rdx, (rsp + 144)
     call int_handle_rust
     pop r15
     pop r14
