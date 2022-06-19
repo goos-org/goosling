@@ -291,6 +291,7 @@ impl PartialEq for InterruptTableDescriptor {
 seq!(N in 0..=255 { global_asm!(stringify!(int_~N: push 0x00; push N; jmp int_handle)); });
 global_asm!(include_str!("interrupt.asm"));
 
+// Stack on interrupt:
 //     ptr   | register
 // --------------------
 // rsp + 176 | ss
@@ -317,24 +318,12 @@ global_asm!(include_str!("interrupt.asm"));
 // rsp + 8   | r15
 // rsp + 0   | (bottom of r15)
 #[no_mangle]
-extern "sysv64" fn int_handle_rust(
-    error_code: usize,
-    interrupt_number: usize,
-    instruction_pointer: &mut usize,
-) {
-    let handler = InterruptManager::get_interrupt_table()
-        .unwrap()
-        .get_handler(interrupt_number as u8)
-        .unwrap_or(|_, _, _| Util::halt_loop());
-    handler(
-        if error_code == 0 {
-            None
-        } else {
-            Some(error_code)
-        },
-        interrupt_number,
-        instruction_pointer,
-    );
+extern "C" fn no_handler(_: usize, interrupt_num: usize) -> ! {
+    panic!("No handler for interrupt {}", interrupt_num);
+}
+
+extern "C" {
+    static mut HANDLERS: [u64; 256];
 }
 
 pub struct InterruptTable {

@@ -18,7 +18,13 @@ int_handle:
     mov rdi, [rsp + 136]
     mov rsi, [rsp + 128]
     mov rdx, (rsp + 144)
-    call int_handle_rust
+    mov rax, [rsp + 128]
+    imul rax, 8
+    add rax, handlers
+    mov rax, [rax]
+    cmp rax, 0x00
+    je no_handler
+    call rax
     pop r15
     pop r14
     pop r13
@@ -36,3 +42,6 @@ int_handle:
     pop rax
     add rsp, 16
     iretq
+
+handlers:
+    .fill 2048, 1, 0x00
