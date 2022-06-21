@@ -282,48 +282,96 @@ pub struct InterruptTableDescriptor {
     pub size: u16,
     pub address: *mut InterruptDescriptor,
 }
-impl PartialEq for InterruptTableDescriptor {
-    fn eq(&self, other: &Self) -> bool {
-        self.size == other.size && self.address as usize == other.address as usize
-    }
-}
 
 seq!(N in 0..=255 { global_asm!(stringify!(int_~N: push 0x00; push N; jmp int_handle)); });
-global_asm!(include_str!("interrupt.asm"));
+//global_asm!(include_str!("interrupt.asm"));
 
 // Stack on interrupt:
 //     ptr   | register
 // --------------------
-// rsp + 176 | ss
-// rsp + 168 | rsp
-// rsp + 160 | rflags
-// rsp + 152 | cs
-// rsp + 144 | rip
-// rsp + 136 | error_code
-// rsp + 128 | interrupt_number
-// rsp + 120 | rax
-// rsp + 112 | rbx
-// rsp + 104 | rcx
-// rsp + 96  | rdx
-// rsp + 88  | rsi
-// rsp + 80  | rdi
-// rsp + 72  | rbp
-// rsp + 64  | r8
-// rsp + 56  | r9
-// rsp + 48  | r10
-// rsp + 40  | r11
-// rsp + 32  | r12
-// rsp + 24  | r13
-// rsp + 16  | r14
-// rsp + 8   | r15
-// rsp + 0   | (bottom of r15)
+// rsp + 168 | ss
+// rsp + 160 | rsp
+// rsp + 152 | rflags
+// rsp + 144 | cs
+// rsp + 136 | rip
+// rsp + 128 | error_code
+// rsp + 120 | interrupt_number
+// rsp + 112 | rax
+// rsp + 104 | rbx
+// rsp + 96  | rcx
+// rsp + 88  | rdx
+// rsp + 80  | rsi
+// rsp + 72  | rdi
+// rsp + 64  | rbp
+// rsp + 56  | r8
+// rsp + 48  | r9
+// rsp + 40  | r10
+// rsp + 32  | r11
+// rsp + 24  | r12
+// rsp + 16  | r13
+// rsp + 8   | r14
+// rsp + 0   | r15
 #[no_mangle]
+#[naked]
+unsafe fn int_handle() -> ! {
+    asm!(
+        "push rax",
+        "push rbx",
+        "push rcx",
+        "push rdx",
+        "push rsi",
+        "push rdi",
+        "push rbp",
+        "push r8",
+        "push r9",
+        "push r10",
+        "push r11",
+        "push r12",
+        "push r13",
+        "push r14",
+        "push r15",
+        "mov rdi, [rsp + 128]",
+        "mov rsi, [rsp + 120]",
+        "mov rdx, (rsp + 136)",
+        "mov rax, rsi",
+        "imul rax, 8",
+        "add rax, {HANDLERS}",
+        "mov rax, [rax]",
+        // Check address (just for debugging)
+        "mov rsi, {HANDLERS}",
+        "jmp {no_handler}",
+        // Regular code again
+        "cmp rax, 0x00",
+        "cld",
+        "je {no_handler}",
+        "call rax",
+        "pop r15",
+        "pop r14",
+        "pop r13",
+        "pop r12",
+        "pop r11",
+        "pop r10",
+        "pop r9",
+        "pop r8",
+        "pop rbp",
+        "pop rdi",
+        "pop rsi",
+        "pop rdx",
+        "pop rcx",
+        "pop rbx",
+        "pop rax",
+        "add rsp, 16",
+        "iretq",
+        no_handler = sym no_handler,
+        HANDLERS = sym HANDLERS,
+        options(noreturn)
+    )
+}
 extern "C" fn no_handler(_: usize, interrupt_num: usize) -> ! {
-    panic!("No handler for interrupt {}", interrupt_num);
+    panic!("No handler for interrupt 0x{:x}", interrupt_num);
 }
 
-#[no_mangle]
-static mut HANDLERS: [u64; 256] = [0u64; 256];
+pub static mut HANDLERS: [u64; 256] = [0u64; 256];
 
 pub struct InterruptTable {
     pub descriptor: InterruptTableDescriptor,
@@ -346,7 +394,7 @@ impl InterruptTableTrait for InterruptTable {
             seq!(N in 0..=255 {
                 (&mut *data)[N] = InterruptDescriptor::new(
                     int_~N as *mut unsafe extern "x86-interrupt" fn() as *mut u8,
-                    0x30,
+                    0x28,
                     0,
                     0xE,
                     0,
@@ -355,7 +403,7 @@ impl InterruptTableTrait for InterruptTable {
         }
 
         let descriptor = InterruptTableDescriptor {
-            size: 0xFFE,
+            size: 0xFFF,
             address: data as *mut InterruptDescriptor,
         };
         Self {

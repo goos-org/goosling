@@ -1,6 +1,8 @@
 #![feature(abi_x86_interrupt)]
 #![feature(alloc_error_handler)]
 #![feature(fn_traits)]
+#![feature(asm_sym)]
+#![feature(naked_functions)]
 #![no_std]
 #![no_main]
 
@@ -10,7 +12,9 @@ pub mod arch;
 pub mod memory;
 pub mod terminals;
 
-use crate::arch::native::{ExceptionStackFrame, InterruptTable, PagingManager, Util};
+use crate::arch::native::{
+    ExceptionStackFrame, InterruptTable, InterruptTableDescriptor, PagingManager, Util, HANDLERS,
+};
 use crate::arch::traits::{
     InterruptManagerTrait, InterruptTableTrait, PageTableTrait, PagingManagerTrait, UtilTrait,
 };
@@ -182,7 +186,7 @@ extern "C" fn main() -> ! {
     InterruptManager::enable_interrupts();
 
     unsafe {
-        asm!("int 0x00");
+        asm!("int 0x10");
     }
 
     Util::halt_loop();

@@ -20,6 +20,8 @@ int_handle:
     mov rax, [rsp + 128]
     imul rax, 8
     add rax, HANDLERS
+    mov rsi, HANDLERS
+    jmp no_handlers
     mov rax, [rax]
     cmp rax, 0x00
     cld
