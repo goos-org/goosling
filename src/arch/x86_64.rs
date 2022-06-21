@@ -323,6 +323,7 @@ extern "C" fn no_handler(_: usize, interrupt_num: usize) -> ! {
 }
 
 extern "C" {
+    #[link_name = "handlers"]
     static mut HANDLERS: [u64; 256];
 }
 
@@ -381,6 +382,9 @@ impl InterruptManagerTrait for InterruptManager {
         unsafe {
             INTERRUPT_TABLE = Some(interrupt_table);
             asm!("lidt [{0}]", in(reg) &interrupt_table.descriptor as *const InterruptTableDescriptor);
+            HANDLERS = interrupt_table
+                .handlers
+                .map(|i| i.map_or_else(|| 0, |j| j as *const () as u64));
         }
         Ok(())
     }

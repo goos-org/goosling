@@ -14,7 +14,6 @@ int_handle:
     push r13
     push r14
     push r15
-    cld
     mov rdi, [rsp + 136]
     mov rsi, [rsp + 128]
     mov rdx, (rsp + 144)
@@ -23,6 +22,7 @@ int_handle:
     add rax, handlers
     mov rax, [rax]
     cmp rax, 0x00
+    cld
     je no_handler
     call rax
     pop r15
