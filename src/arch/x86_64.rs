@@ -358,6 +358,7 @@ unsafe fn int_handle() -> ! {
         "pop rbx",
         "pop rax",
         "add rsp, 16",
+        "sti",
         "iretq",
         no_handler = sym no_handler,
         HANDLERS = sym HANDLERS,
