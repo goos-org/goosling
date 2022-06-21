@@ -14,11 +14,17 @@ int_handle:
     push r13
     push r14
     push r15
-    cld
     mov rdi, [rsp + 136]
     mov rsi, [rsp + 128]
     mov rdx, (rsp + 144)
-    call int_handle_rust
+    mov rax, [rsp + 128]
+    imul rax, 8
+    add rax, HANDLERS
+    mov rax, [rax]
+    cmp rax, 0x00
+    cld
+    je no_handler
+    call rax
     pop r15
     pop r14
     pop r13

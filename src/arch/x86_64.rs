@@ -291,6 +291,7 @@ impl PartialEq for InterruptTableDescriptor {
 seq!(N in 0..=255 { global_asm!(stringify!(int_~N: push 0x00; push N; jmp int_handle)); });
 global_asm!(include_str!("interrupt.asm"));
 
+// Stack on interrupt:
 //     ptr   | register
 // --------------------
 // rsp + 176 | ss
@@ -317,34 +318,16 @@ global_asm!(include_str!("interrupt.asm"));
 // rsp + 8   | r15
 // rsp + 0   | (bottom of r15)
 #[no_mangle]
-extern "sysv64" fn int_handle_rust(
-    error_code: usize,
-    interrupt_number: usize,
-    instruction_pointer: &mut usize,
-) {
-    let handler = InterruptManager::get_interrupt_table()
-        .unwrap()
-        .get_handler(interrupt_number as u8)
-        .unwrap_or(|_, _, _| Util::halt_loop());
-    handler(
-        if error_code == 0 {
-            None
-        } else {
-            Some(error_code)
-        },
-        interrupt_number,
-        instruction_pointer,
-    );
+extern "C" fn no_handler(_: usize, interrupt_num: usize) -> ! {
+    panic!("No handler for interrupt {}", interrupt_num);
 }
+
+#[no_mangle]
+static mut HANDLERS: [u64; 256] = [0u64; 256];
 
 pub struct InterruptTable {
     pub descriptor: InterruptTableDescriptor,
     pub handlers: [Option<InterruptHandler>; 256],
-}
-impl InterruptTable {
-    fn get_handler(&self, interrupt_number: u8) -> Option<InterruptHandler> {
-        self.handlers[interrupt_number as usize]
-    }
 }
 impl InterruptTableTrait for InterruptTable {
     fn set_interrupt_handler(&mut self, interrupt_num: usize, handler: InterruptHandler) {
@@ -392,6 +375,9 @@ impl InterruptManagerTrait for InterruptManager {
         unsafe {
             INTERRUPT_TABLE = Some(interrupt_table);
             asm!("lidt [{0}]", in(reg) &interrupt_table.descriptor as *const InterruptTableDescriptor);
+            HANDLERS = interrupt_table
+                .handlers
+                .map(|i| i.map_or_else(|| 0, |j| j as *const () as u64));
         }
         Ok(())
     }
