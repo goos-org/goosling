@@ -186,7 +186,7 @@ extern "C" fn main() -> ! {
     InterruptManager::enable_interrupts();
 
     unsafe {
-        asm!("int 0x10");
+        asm!("int 0x00");
     }
 
     Util::halt_loop();

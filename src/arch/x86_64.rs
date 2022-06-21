@@ -284,7 +284,6 @@ pub struct InterruptTableDescriptor {
 }
 
 seq!(N in 0..=255 { global_asm!(stringify!(int_~N: push 0x00; push N; jmp int_handle)); });
-//global_asm!(include_str!("interrupt.asm"));
 
 // Stack on interrupt:
 //     ptr   | register
@@ -333,14 +332,12 @@ unsafe fn int_handle() -> ! {
         "mov rdi, [rsp + 128]",
         "mov rsi, [rsp + 120]",
         "mov rdx, (rsp + 136)",
-        "mov rax, rsi",
-        "imul rax, 8",
-        "add rax, {HANDLERS}",
+        "xor rax, rax",
+        "mov rcx, rsi",
+        "imul rcx, 8",
+        "lea rax, {HANDLERS}",
+        "add rax, rcx",
         "mov rax, [rax]",
-        // Check address (just for debugging)
-        "mov rsi, {HANDLERS}",
-        "jmp {no_handler}",
-        // Regular code again
         "cmp rax, 0x00",
         "cld",
         "je {no_handler}",
