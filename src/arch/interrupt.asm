@@ -19,7 +19,7 @@ int_handle:
     mov rdx, (rsp + 144)
     mov rax, [rsp + 128]
     imul rax, 8
-    add rax, handlers
+    add rax, HANDLERS
     mov rax, [rax]
     cmp rax, 0x00
     cld
@@ -42,6 +42,3 @@ int_handle:
     pop rax
     add rsp, 16
     iretq
-
-handlers:
-    .fill 2048, 1, 0x00

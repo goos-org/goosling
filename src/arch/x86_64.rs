@@ -322,19 +322,12 @@ extern "C" fn no_handler(_: usize, interrupt_num: usize) -> ! {
     panic!("No handler for interrupt {}", interrupt_num);
 }
 
-extern "C" {
-    #[link_name = "handlers"]
-    static mut HANDLERS: [u64; 256];
-}
+#[no_mangle]
+static mut HANDLERS: [u64; 256] = [0u64; 256];
 
 pub struct InterruptTable {
     pub descriptor: InterruptTableDescriptor,
     pub handlers: [Option<InterruptHandler>; 256],
-}
-impl InterruptTable {
-    fn get_handler(&self, interrupt_number: u8) -> Option<InterruptHandler> {
-        self.handlers[interrupt_number as usize]
-    }
 }
 impl InterruptTableTrait for InterruptTable {
     fn set_interrupt_handler(&mut self, interrupt_num: usize, handler: InterruptHandler) {

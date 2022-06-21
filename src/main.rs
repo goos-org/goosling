@@ -179,7 +179,6 @@ extern "C" fn main() -> ! {
         terminal.fail("Failed to set interrupt table");
         Util::halt_loop();
     });
-    panic!("Test");
     InterruptManager::enable_interrupts();
 
     unsafe {
