@@ -367,10 +367,9 @@ extern "C" fn int_handle_rust(error_code: usize, interrupt_num: usize, rip: &'st
             interrupt_num,
             rip,
         );
+    } else {
+        panic!("No handler for interrupt 0x{:x}", interrupt_num)
     }
-}
-extern "C" fn no_handler(_: usize, interrupt_num: usize) -> ! {
-    panic!("No handler for interrupt 0x{:x}", interrupt_num);
 }
 
 pub static mut HANDLERS: [Option<InterruptHandler>; 256] = [None; 256];
