@@ -3,6 +3,8 @@
 #![feature(fn_traits)]
 #![feature(asm_sym)]
 #![feature(naked_functions)]
+#![feature(core_intrinsics)]
+#![feature(stmt_expr_attributes)]
 #![no_std]
 #![no_main]
 
@@ -13,10 +15,12 @@ pub mod memory;
 pub mod terminals;
 
 use crate::arch::native::{
-    ExceptionStackFrame, InterruptTable, InterruptTableDescriptor, PagingManager, Util, HANDLERS,
+    ExceptionHandler, ExceptionStackFrame, InterruptTable, InterruptTableDescriptor, PagingManager,
+    Util, HANDLERS,
 };
 use crate::arch::traits::{
-    InterruptManagerTrait, InterruptTableTrait, PageTableTrait, PagingManagerTrait, UtilTrait,
+    ExceptionHandlerTrait, InterruptManagerTrait, InterruptTableTrait, PageTableTrait,
+    PagingManagerTrait, UtilTrait,
 };
 use crate::arch::x86_64::InterruptManager;
 use crate::arch::Error;
@@ -178,7 +182,11 @@ extern "C" fn main() -> ! {
     terminal.println("");
 
     let mut idt = InterruptTable::new();
-    idt.set_interrupt_handler(0, interrupt_handler);
+    let exception_handler = ExceptionHandler::new(&|e| {
+        panic!("Interrupt received");
+        true
+    });
+    exception_handler.write(&mut idt);
     InterruptManager::set_interrupt_table(&mut idt).unwrap_or_else(|_| {
         terminal.fail("Failed to set interrupt table");
         Util::halt_loop();

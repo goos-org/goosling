@@ -1,11 +1,36 @@
 pub mod traits;
 pub mod x86_64;
 
-// Will be arch-dependent anyway
+use core::ptr::NonNull;
+#[cfg(target_arch = "x86_64")]
 pub use x86_64 as native;
 
-type InterruptHandler =
-    fn(error_code: Option<usize>, interrupt_number: usize, instruction_pointer: &mut usize);
+type InterruptHandler = NonNull<dyn FnMut(Option<usize>, usize, &'static mut usize)>;
+
+pub enum CpuException {
+    DivideByZero,
+    Debug,
+    NonMaskableInterrupt,
+    Breakpoint,
+    Overflow,
+    BoundRangeExceeded,
+    InvalidOpcode,
+    DeviceUnavailable,
+    InvalidTss,
+    SegmentNotPresent,
+    StackSegmentFault,
+    GeneralProtectionFault,
+    PageFault,
+    FloatingPointException,
+    AlignmentCheck,
+    MachineCheck,
+    SimdException,
+    VirtualizationException,
+    ControlProtectionException,
+    HypervisorInjectionException,
+    VmmCommunicationException,
+    SecurityException,
+}
 
 #[derive(Debug)]
 pub enum Error {
