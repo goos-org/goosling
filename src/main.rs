@@ -23,7 +23,7 @@ use crate::arch::traits::{
     PagingManagerTrait, UtilTrait,
 };
 use crate::arch::x86_64::InterruptManager;
-use crate::arch::Error;
+use crate::arch::{CpuException, Error};
 use crate::memory::BitmapAllocator;
 use crate::terminals::Terminal;
 use alloc::string::ToString;
@@ -77,23 +77,6 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
         Util::halt_loop();
     }));
     Util::halt_loop();
-}
-
-fn interrupt_handler(
-    error_code: Option<usize>,
-    interrupt_number: usize,
-    instruction_pointer: &mut usize,
-) {
-    let term = {
-        let response = TERMINAL_REQUEST
-            .get_response()
-            .get()
-            .unwrap_or_else(|| Util::halt_loop());
-        let terminals = response.terminals().unwrap_or_else(|| Util::halt_loop());
-        let term = terminals.get(0).unwrap_or_else(|| Util::halt_loop());
-        Terminal::new(term, response.write().unwrap_or_else(|| Util::halt_loop()))
-    };
-    term.info("Interrupt received");
 }
 
 #[no_mangle]
@@ -182,11 +165,6 @@ extern "C" fn main() -> ! {
     terminal.println("");
 
     let mut idt = InterruptTable::new();
-    let exception_handler = ExceptionHandler::new(&|e| {
-        panic!("Interrupt received");
-        true
-    });
-    exception_handler.write(&mut idt);
     InterruptManager::set_interrupt_table(&mut idt).unwrap_or_else(|_| {
         terminal.fail("Failed to set interrupt table");
         Util::halt_loop();

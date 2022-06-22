@@ -24,12 +24,10 @@ pub trait InterruptInfoTrait {
 }
 
 pub trait InterruptTableTrait {
-    /// # Safety
-    /// Dereferences the `handler` pointer in order to make a `NonNull` reference
-    unsafe fn set_interrupt_handler(
+    fn set_interrupt_handler(
         &mut self,
         interrupt_num: usize,
-        handler: *const dyn FnMut(Option<usize>, usize, &'static mut usize),
+        handler: fn(Option<usize>, usize, &'static mut usize),
     );
     fn new() -> Self;
 }
@@ -39,10 +37,4 @@ pub trait InterruptManagerTrait {
     fn set_interrupt_table(interrupt_table: &mut Self::InterruptTable) -> Result<(), Error>;
     fn get_interrupt_table<'a>() -> Result<&'a mut Self::InterruptTable, Error>;
     fn enable_interrupts();
-}
-
-pub trait ExceptionHandlerTrait {
-    fn new(handler: *const dyn Fn(CpuException) -> bool) -> Self;
-    fn set_handler(&mut self, handler: *const dyn Fn(CpuException) -> bool);
-    fn write(&self, table: &mut InterruptTable);
 }

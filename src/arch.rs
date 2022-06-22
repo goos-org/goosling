@@ -5,7 +5,7 @@ use core::ptr::NonNull;
 #[cfg(target_arch = "x86_64")]
 pub use x86_64 as native;
 
-type InterruptHandler = NonNull<dyn FnMut(Option<usize>, usize, &'static mut usize)>;
+type InterruptHandler = fn(Option<usize>, usize, &'static mut usize);
 
 pub enum CpuException {
     DivideByZero,

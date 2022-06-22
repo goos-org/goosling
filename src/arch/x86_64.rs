@@ -1,6 +1,5 @@
 use crate::arch::traits::{
-    ExceptionHandlerTrait, InterruptInfoTrait, InterruptManagerTrait, InterruptTableTrait,
-    UtilTrait,
+    InterruptInfoTrait, InterruptManagerTrait, InterruptTableTrait, UtilTrait,
 };
 use crate::arch::{CpuException, Error, InterruptHandler};
 use crate::{memory, PageTableTrait, PagingManagerTrait};
@@ -359,7 +358,7 @@ unsafe fn int_handle() -> ! {
 }
 extern "C" fn int_handle_rust(error_code: usize, interrupt_num: usize, rip: &'static mut usize) {
     if let Some(handler) = unsafe { HANDLERS }[interrupt_num] {
-        (unsafe { &mut *handler.as_ptr() })(
+        handler(
             if error_code == 0 {
                 None
             } else {
@@ -381,12 +380,12 @@ pub struct InterruptTable {
     pub handlers: [Option<InterruptHandler>; 256],
 }
 impl InterruptTableTrait for InterruptTable {
-    unsafe fn set_interrupt_handler(
+    fn set_interrupt_handler(
         &mut self,
         interrupt_num: usize,
-        handler: *const dyn FnMut(Option<usize>, usize, &'static mut usize),
+        handler: fn(Option<usize>, usize, &'static mut usize),
     ) {
-        self.handlers[interrupt_num] = Some(NonNull::from(unsafe { &*handler }));
+        self.handlers[interrupt_num] = Some(handler);
     }
 
     fn new() -> Self {
@@ -442,199 +441,6 @@ impl InterruptManagerTrait for InterruptManager {
     fn enable_interrupts() {
         unsafe {
             asm!("sti", options(nostack, nomem));
-        }
-    }
-}
-
-pub struct ExceptionHandler {
-    handler: *const dyn Fn(CpuException) -> bool,
-}
-impl ExceptionHandlerTrait for ExceptionHandler {
-    fn new(handler: *const dyn Fn(CpuException) -> bool) -> Self {
-        Self { handler }
-    }
-    fn set_handler(&mut self, handler: *const dyn Fn(CpuException) -> bool) {
-        self.handler = handler;
-    }
-    fn write(&self, table: &mut InterruptTable) {
-        let handler = self.handler;
-        unsafe {
-            table.set_interrupt_handler(
-                0,
-                (&move |_, _, _| {
-                    if (*handler)(CpuException::DivideByZero) {
-                        panic!("Unhandled division by zero");
-                    }
-                }) as *const _,
-            );
-            table.set_interrupt_handler(
-                1,
-                (&move |_, _, _| {
-                    if (*handler)(CpuException::Debug) {
-                        panic!("Unhandled debug exception");
-                    }
-                }) as *const _,
-            );
-            table.set_interrupt_handler(
-                2,
-                (&move |_, _, _| {
-                    if (*handler)(CpuException::NonMaskableInterrupt) {
-                        panic!("Unhandled non-maskable interrupt");
-                    }
-                }) as *const _,
-            );
-            table.set_interrupt_handler(
-                3,
-                (&move |_, _, _| {
-                    if (*handler)(CpuException::Breakpoint) {
-                        panic!("Unhandled breakpoint");
-                    }
-                }) as *const _,
-            );
-            table.set_interrupt_handler(
-                4,
-                (&move |_, _, _| {
-                    if (*handler)(CpuException::Overflow) {
-                        panic!("Unhandled overflow exception");
-                    }
-                }) as *const _,
-            );
-            table.set_interrupt_handler(
-                5,
-                (&move |_, _, _| {
-                    if (*handler)(CpuException::BoundRangeExceeded) {
-                        panic!("Unhandled bound range exception");
-                    }
-                }) as *const _,
-            );
-            table.set_interrupt_handler(
-                6,
-                (&move |_, _, _| {
-                    if (*handler)(CpuException::InvalidOpcode) {
-                        panic!("Unhandled invalid opcode exception");
-                    }
-                }) as *const _,
-            );
-            table.set_interrupt_handler(
-                7,
-                (&move |_, _, _| {
-                    if (*handler)(CpuException::DeviceUnavailable) {
-                        panic!("Unhandled device unavailable exception");
-                    }
-                }) as *const _,
-            );
-            table.set_interrupt_handler(
-                10,
-                (&move |_, _, _| {
-                    if (*handler)(CpuException::InvalidTss) {
-                        panic!("Unhandled invalid task-state segment exception");
-                    }
-                }) as *const _,
-            );
-            table.set_interrupt_handler(
-                11,
-                (&move |_, _, _| {
-                    if (*handler)(CpuException::SegmentNotPresent) {
-                        panic!("Unhandled segment not present exception");
-                    }
-                }) as *const _,
-            );
-            table.set_interrupt_handler(
-                12,
-                (&move |_, _, _| {
-                    if (*handler)(CpuException::StackSegmentFault) {
-                        panic!("Unhandled stack segment fault");
-                    }
-                }) as *const _,
-            );
-            table.set_interrupt_handler(
-                13,
-                (&move |_, _, _| {
-                    if (*handler)(CpuException::GeneralProtectionFault) {
-                        panic!("Unhandled general protection fault");
-                    }
-                }) as *const _,
-            );
-            table.set_interrupt_handler(
-                14,
-                (&move |_, _, _| {
-                    if (*handler)(CpuException::PageFault) {
-                        panic!("Unhandled page fault");
-                    }
-                }) as *const _,
-            );
-            table.set_interrupt_handler(
-                16,
-                (&move |_, _, _| {
-                    if (*handler)(CpuException::FloatingPointException) {
-                        panic!("Unhandled floating point exception");
-                    }
-                }) as *const _,
-            );
-            table.set_interrupt_handler(
-                17,
-                (&move |_, _, _| {
-                    if (*handler)(CpuException::AlignmentCheck) {
-                        panic!("Unhandled alignment check error");
-                    }
-                }) as *const _,
-            );
-            table.set_interrupt_handler(
-                18,
-                (&move |_, _, _| {
-                    if (*handler)(CpuException::MachineCheck) {
-                        panic!("Unhandled machine check error");
-                    }
-                }) as *const _,
-            );
-            table.set_interrupt_handler(
-                19,
-                (&move |_, _, _| {
-                    if (*handler)(CpuException::SimdException) {
-                        panic!("Unhandled SIMD exception");
-                    }
-                }) as *const _,
-            );
-            table.set_interrupt_handler(
-                20,
-                (&move |_, _, _| {
-                    if (*handler)(CpuException::VirtualizationException) {
-                        panic!("Unhandled virtualization exception");
-                    }
-                }) as *const _,
-            );
-            table.set_interrupt_handler(
-                21,
-                (&move |_, _, _| {
-                    if (*handler)(CpuException::ControlProtectionException) {
-                        panic!("Unhandled control protection exception");
-                    }
-                }) as *const _,
-            );
-            table.set_interrupt_handler(
-                28,
-                (&move |_, _, _| {
-                    if (*handler)(CpuException::HypervisorInjectionException) {
-                        panic!("Unhandled hypervisor injection exception");
-                    }
-                }) as *const _,
-            );
-            table.set_interrupt_handler(
-                29,
-                (&move |_, _, _| {
-                    if (*handler)(CpuException::VmmCommunicationException) {
-                        panic!("Unhandled VMM communication exception");
-                    }
-                }) as *const _,
-            );
-            table.set_interrupt_handler(
-                30,
-                (&move |_, _, _| {
-                    if (*handler)(CpuException::SecurityException) {
-                        panic!("Unhandled security exception");
-                    }
-                }) as *const _,
-            );
         }
     }
 }
