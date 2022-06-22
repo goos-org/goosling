@@ -1,7 +1,7 @@
 use crate::arch::traits::{
     InterruptInfoTrait, InterruptManagerTrait, InterruptTableTrait, UtilTrait,
 };
-use crate::arch::{CpuException, Error, InterruptHandler};
+use crate::arch::{CpuInterrupt, Error, InterruptHandler};
 use crate::{memory, PageTableTrait, PagingManagerTrait};
 use core::arch::{asm, global_asm};
 use core::ptr::{slice_from_raw_parts_mut, NonNull};
@@ -234,6 +234,35 @@ impl UtilTrait for Util {
         }
     }
 }
+impl Util {
+    pub const fn interrupt_num(exception: CpuInterrupt) -> Option<usize> {
+        match exception {
+            CpuInterrupt::DivideByZero => Some(0),
+            CpuInterrupt::Debug => Some(1),
+            CpuInterrupt::NonMaskableInterrupt => Some(2),
+            CpuInterrupt::Breakpoint => Some(3),
+            CpuInterrupt::Overflow => Some(4),
+            CpuInterrupt::BoundRangeExceeded => Some(5),
+            CpuInterrupt::InvalidOpcode => Some(6),
+            CpuInterrupt::DeviceUnavailable => Some(7),
+            CpuInterrupt::InvalidTss => Some(10),
+            CpuInterrupt::SegmentNotPresent => Some(11),
+            CpuInterrupt::StackSegmentFault => Some(12),
+            CpuInterrupt::GeneralProtectionFault => Some(13),
+            CpuInterrupt::PageFault => Some(14),
+            CpuInterrupt::FloatingPointException => Some(16),
+            CpuInterrupt::AlignmentCheck => Some(17),
+            CpuInterrupt::MachineCheck => Some(18),
+            CpuInterrupt::SimdException => Some(19),
+            CpuInterrupt::VirtualizationException => Some(20),
+            CpuInterrupt::ControlProtectionException => Some(21),
+            CpuInterrupt::HypervisorInjectionException => Some(28),
+            CpuInterrupt::VmmCommunicationException => Some(29),
+            CpuInterrupt::SecurityException => Some(30),
+            CpuInterrupt::Syscall => Some(128),
+        }
+    }
+}
 
 pub struct ExceptionStackFrame {
     pub instruction_pointer: u64,
@@ -283,7 +312,7 @@ pub struct InterruptTableDescriptor {
     pub address: *mut InterruptDescriptor,
 }
 
-seq!(N in 0..=255 { global_asm!(stringify!(int_~N: push 0x00; push N; jmp int_handle)); });
+global_asm!(include_str!("interrupt.asm"));
 
 // Stack on interrupt:
 //     ptr   | register
@@ -357,7 +386,8 @@ unsafe fn int_handle() -> ! {
     )
 }
 extern "C" fn int_handle_rust(error_code: usize, interrupt_num: usize, rip: &'static mut usize) {
-    if let Some(handler) = unsafe { HANDLERS }[interrupt_num] {
+    if let Some(handler) = InterruptManager::get_interrupt_table().unwrap().handlers[interrupt_num]
+    {
         handler(
             if error_code == 0 {
                 None
@@ -368,11 +398,9 @@ extern "C" fn int_handle_rust(error_code: usize, interrupt_num: usize, rip: &'st
             rip,
         );
     } else {
-        panic!("No handler for interrupt 0x{:x}", interrupt_num)
+        panic!("No handler for interrupt 0x{:x}", interrupt_num);
     }
 }
-
-pub static mut HANDLERS: [Option<InterruptHandler>; 256] = [None; 256];
 
 pub struct InterruptTable {
     pub descriptor: InterruptTableDescriptor,
@@ -428,7 +456,6 @@ impl InterruptManagerTrait for InterruptManager {
         unsafe {
             INTERRUPT_TABLE = Some(interrupt_table);
             asm!("lidt [{0}]", in(reg) &interrupt_table.descriptor as *const InterruptTableDescriptor);
-            HANDLERS = interrupt_table.handlers;
         }
         Ok(())
     }

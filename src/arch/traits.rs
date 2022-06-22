@@ -1,4 +1,4 @@
-use crate::arch::{CpuException, Error, InterruptHandler};
+use crate::arch::{CpuInterrupt, Error, InterruptHandler};
 use crate::InterruptTable;
 
 pub trait PagingManagerTrait {

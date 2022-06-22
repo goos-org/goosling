@@ -15,17 +15,16 @@ pub mod memory;
 pub mod terminals;
 
 use crate::arch::native::{
-    ExceptionStackFrame, InterruptTable, InterruptTableDescriptor, PagingManager, Util, HANDLERS,
+    ExceptionStackFrame, InterruptTable, InterruptTableDescriptor, PagingManager, Util,
 };
 use crate::arch::traits::{
     InterruptManagerTrait, InterruptTableTrait, PageTableTrait, PagingManagerTrait, UtilTrait,
 };
 use crate::arch::x86_64::InterruptManager;
-use crate::arch::{CpuException, Error};
+use crate::arch::{CpuInterrupt, Error};
 use crate::memory::BitmapAllocator;
 use crate::terminals::Terminal;
 use alloc::string::ToString;
-use core::arch::asm;
 use limine::{LimineMemoryMapEntryType, LimineMmapRequest, LimineTerminal, LimineTerminalRequest};
 use numtoa::NumToA;
 
@@ -75,6 +74,10 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
         Util::halt_loop();
     }));
     Util::halt_loop();
+}
+
+fn page_fault(_error_code: Option<usize>, _: usize, _: &mut usize) {
+    panic!("Page fault")
 }
 
 #[no_mangle]
@@ -164,14 +167,9 @@ extern "C" fn main() -> ! {
 
     let mut idt = InterruptTable::new();
     InterruptManager::set_interrupt_table(&mut idt).unwrap_or_else(|_| {
-        terminal.fail("Failed to set interrupt table");
-        Util::halt_loop();
+        panic!("Failed to set interrupt table");
     });
     InterruptManager::enable_interrupts();
-
-    unsafe {
-        asm!("int 0x00");
-    }
 
     Util::halt_loop();
 }

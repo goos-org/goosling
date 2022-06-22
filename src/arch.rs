@@ -7,7 +7,7 @@ pub use x86_64 as native;
 
 type InterruptHandler = fn(Option<usize>, usize, &'static mut usize);
 
-pub enum CpuException {
+pub enum CpuInterrupt {
     DivideByZero,
     Debug,
     NonMaskableInterrupt,
@@ -30,6 +30,7 @@ pub enum CpuException {
     HypervisorInjectionException,
     VmmCommunicationException,
     SecurityException,
+    Syscall,
 }
 
 #[derive(Debug)]
