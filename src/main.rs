@@ -15,12 +15,10 @@ pub mod memory;
 pub mod terminals;
 
 use crate::arch::native::{
-    ExceptionHandler, ExceptionStackFrame, InterruptTable, InterruptTableDescriptor, PagingManager,
-    Util, HANDLERS,
+    ExceptionStackFrame, InterruptTable, InterruptTableDescriptor, PagingManager, Util, HANDLERS,
 };
 use crate::arch::traits::{
-    ExceptionHandlerTrait, InterruptManagerTrait, InterruptTableTrait, PageTableTrait,
-    PagingManagerTrait, UtilTrait,
+    InterruptManagerTrait, InterruptTableTrait, PageTableTrait, PagingManagerTrait, UtilTrait,
 };
 use crate::arch::x86_64::InterruptManager;
 use crate::arch::{CpuException, Error};
