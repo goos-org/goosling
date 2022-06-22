@@ -15,7 +15,7 @@ pub mod memory;
 pub mod terminals;
 
 use crate::arch::native::{
-    ExceptionStackFrame, InterruptTable, InterruptTableDescriptor, PagingManager, Util,
+    ErrorCode, ExceptionStackFrame, InterruptTable, InterruptTableDescriptor, PagingManager, Util,
 };
 use crate::arch::traits::{
     InterruptManagerTrait, InterruptTableTrait, PageTableTrait, PagingManagerTrait, UtilTrait,
@@ -76,8 +76,11 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
     Util::halt_loop();
 }
 
-fn page_fault(_error_code: Option<usize>, _: usize, _: &mut usize) {
-    panic!("Page fault")
+fn page_fault(error_code: Option<ErrorCode>, _: usize, _: &mut usize) {
+    panic!(
+        "Page fault: {:?}",
+        error_code.expect("No error code given for page fault")
+    );
 }
 
 #[no_mangle]
@@ -109,11 +112,11 @@ extern "C" fn main() -> ! {
         Util::halt_loop();
     });
     terminal.ok("Got page table");
-    let page_0 = page_table.get_physical_addr(0x1000).unwrap_or_else(|| {
+    let page_1 = page_table.get_physical_addr(0x1000).unwrap_or_else(|| {
         terminal.fail("Failed to get page 0");
         Util::halt_loop();
     });
-    if page_0 == 0x1000 {
+    if page_1 == 0x1000 {
         terminal.ok("Paging correctly initialized");
     } else {
         terminal.fail("Paging initialized incorrectly");
@@ -166,10 +169,16 @@ extern "C" fn main() -> ! {
     terminal.println("");
 
     let mut idt = InterruptTable::new();
+    idt.set_interrupt_handler(
+        Util::interrupt_num(CpuInterrupt::PageFault).unwrap(),
+        page_fault,
+    );
     InterruptManager::set_interrupt_table(&mut idt).unwrap_or_else(|_| {
         panic!("Failed to set interrupt table");
     });
     InterruptManager::enable_interrupts();
+
+    let value = unsafe { *(0x00 as *const usize) };
 
     Util::halt_loop();
 }

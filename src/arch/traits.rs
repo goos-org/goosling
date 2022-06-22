@@ -1,5 +1,5 @@
-use crate::arch::{CpuInterrupt, Error, InterruptHandler};
-use crate::InterruptTable;
+use crate::arch::native::ErrorCode;
+use crate::arch::Error;
 
 pub trait PagingManagerTrait {
     type PageTable: PageTableTrait;
@@ -27,7 +27,7 @@ pub trait InterruptTableTrait {
     fn set_interrupt_handler(
         &mut self,
         interrupt_num: usize,
-        handler: fn(Option<usize>, usize, &'static mut usize),
+        handler: fn(Option<ErrorCode>, usize, &'static mut usize),
     );
     fn new() -> Self;
 }

@@ -4,6 +4,7 @@ use crate::arch::traits::{
 use crate::arch::{CpuInterrupt, Error, InterruptHandler};
 use crate::{memory, PageTableTrait, PagingManagerTrait};
 use core::arch::{asm, global_asm};
+use core::fmt::Debug;
 use core::ptr::{slice_from_raw_parts_mut, NonNull};
 use seq_macro::seq;
 
@@ -389,10 +390,11 @@ extern "C" fn int_handle_rust(error_code: usize, interrupt_num: usize, rip: &'st
     if let Some(handler) = InterruptManager::get_interrupt_table().unwrap().handlers[interrupt_num]
     {
         handler(
-            if error_code == 0 {
-                None
-            } else {
-                Some(error_code)
+            match interrupt_num {
+                10 | 11 | 12 | 13 | 14 | 29 | 30 => {
+                    Some(ErrorCode::from(error_code, interrupt_num))
+                }
+                _ => None,
             },
             interrupt_num,
             rip,
@@ -410,7 +412,7 @@ impl InterruptTableTrait for InterruptTable {
     fn set_interrupt_handler(
         &mut self,
         interrupt_num: usize,
-        handler: fn(Option<usize>, usize, &'static mut usize),
+        handler: fn(Option<ErrorCode>, usize, &'static mut usize),
     ) {
         self.handlers[interrupt_num] = Some(handler);
     }
@@ -467,6 +469,77 @@ impl InterruptManagerTrait for InterruptManager {
     fn enable_interrupts() {
         unsafe {
             asm!("sti", options(nostack, nomem));
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct SegmentError {
+    external: bool,
+    table: u8,
+    index: u16,
+}
+impl From<usize> for SegmentError {
+    fn from(error_code: usize) -> Self {
+        Self {
+            external: error_code & 0b01 > 0,
+            table: ((error_code >> 1) & 0b11) as u8,
+            index: ((error_code >> 3) & 0x1FFF) as u16,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum ErrorCode {
+    InvalidTss(SegmentError),
+    SegmentNotPresent(SegmentError),
+    StackSegmentFault(SegmentError),
+    GeneralProtectionFault(SegmentError),
+    PageFault {
+        present: bool,
+        write: bool,
+        user: bool,
+        reserved_write: bool,
+        instruction_fetch: bool,
+        protection_key: bool,
+        shadow_stack: bool,
+        software_guard_extensions: bool,
+        address: usize,
+    },
+    ControlProtectionException(u8),
+    VmmCommunicationException(u8),
+    SecurityException(u8),
+}
+impl ErrorCode {
+    pub fn from(error_code: usize, interrupt_num: usize) -> Self {
+        match interrupt_num {
+            10 => ErrorCode::InvalidTss(SegmentError::from(error_code)),
+            11 => ErrorCode::SegmentNotPresent(SegmentError::from(error_code)),
+            12 => ErrorCode::StackSegmentFault(SegmentError::from(error_code)),
+            13 => ErrorCode::GeneralProtectionFault(SegmentError::from(error_code)),
+            14 => {
+                let mut address: usize;
+                unsafe {
+                    asm!("mov {0}, cr2", out(reg) address);
+                }
+                ErrorCode::PageFault {
+                    present: error_code & 0x01 > 0,
+                    write: error_code & 0x02 > 0,
+                    user: error_code & 0x04 > 0,
+                    reserved_write: error_code & 0x08 > 0,
+                    instruction_fetch: error_code & 0x10 > 0,
+                    protection_key: error_code & 0x20 > 0,
+                    shadow_stack: error_code & 0x40 > 0,
+                    software_guard_extensions: error_code & 0x4000 > 0,
+                    address,
+                }
+            }
+            29 => ErrorCode::VmmCommunicationException(error_code as u8),
+            30 => ErrorCode::SecurityException(error_code as u8),
+            _ => panic!(
+                "Invalid error code {} for interrupt {}",
+                error_code, interrupt_num
+            ),
         }
     }
 }
