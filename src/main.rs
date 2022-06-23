@@ -92,19 +92,6 @@ extern "C" fn main() -> ! {
     terminal.info("Hello, world!");
     terminal.ok("Booted from Limine");
     terminal.ok("Initialized terminal");
-    terminal.info("Initializing cpu");
-    Util::init().unwrap_or_else(|e| {
-        match e {
-            Error::Unsupported => {
-                terminal.fail("Failed to initialize cpu: unsupported cpu");
-            }
-            _ => {
-                terminal.fail("Failed to initialize cpu: unknown error");
-            }
-        }
-        Util::halt_loop();
-    });
-    terminal.ok("Initialized cpu");
     terminal.info("Testing paging");
     terminal.info("Getting page table");
     let page_table = PagingManager::get_page_table().unwrap_or_else(|_| {
@@ -167,6 +154,20 @@ extern "C" fn main() -> ! {
     terminal.info_raw("Free memory: ");
     pretty_print_size(allocator.get_free() as usize, &terminal);
     terminal.println("");
+
+    terminal.info("Initializing cpu");
+    Util::init().unwrap_or_else(|e| {
+        match e {
+            Error::Unsupported => {
+                terminal.fail("Failed to initialize cpu: unsupported cpu");
+            }
+            _ => {
+                terminal.fail("Failed to initialize cpu: unknown error");
+            }
+        }
+        Util::halt_loop();
+    });
+    terminal.ok("Initialized cpu");
 
     let mut idt = InterruptTable::new();
     idt.set_interrupt_handler(

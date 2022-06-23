@@ -17,7 +17,7 @@ impl BitmapAllocator {
             free: 0,
         }
     }
-    pub fn alloc(&mut self) -> Option<usize> {
+    pub fn alloc<T>(&mut self) -> Option<&mut T> {
         let bitmap = unsafe { &mut *self.bitmap };
         for (i, item) in bitmap.iter_mut().enumerate() {
             if *item != 0xff {
@@ -25,7 +25,7 @@ impl BitmapAllocator {
                     if *item & (1 << j) == 0 {
                         *item |= 1 << j;
                         self.free -= 1;
-                        return Some((i * 8 + j) * 4096);
+                        return Some(unsafe { &mut *(((i * 8 + j) * 4096) as *mut T) });
                     }
                 }
             }

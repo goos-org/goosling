@@ -103,7 +103,7 @@ impl PageTableTrait for PageTable {
                 if let Some(allocator) = &mut memory::ALLOCATOR {
                     let page = allocator.alloc().unwrap();
                     core::ptr::write_bytes(page as *mut u8, 0, 0x1000);
-                    pml4_entry.set_addr(page);
+                    pml4_entry.set_addr(page as *mut _ as usize);
                     pml4_entry.set_present(true);
                 } else {
                     unimplemented!("Can't allocate memory");
@@ -116,7 +116,7 @@ impl PageTableTrait for PageTable {
                 if let Some(allocator) = &mut memory::ALLOCATOR {
                     let page = allocator.alloc().unwrap();
                     core::ptr::write_bytes(page as *mut u8, 0, 0x1000);
-                    pml3_entry.set_addr(page);
+                    pml3_entry.set_addr(page as *mut _ as usize);
                     pml3_entry.set_present(true);
                 } else {
                     unimplemented!("Can't allocate memory");
@@ -129,7 +129,7 @@ impl PageTableTrait for PageTable {
                 if let Some(allocator) = &mut memory::ALLOCATOR {
                     let page = allocator.alloc().unwrap();
                     core::ptr::write_bytes(page as *mut u8, 0, 0x1000);
-                    pml2_entry.set_addr(page);
+                    pml2_entry.set_addr(page as *mut _ as usize);
                     pml2_entry.set_present(true);
                 } else {
                     unimplemented!("Can't allocate memory");
@@ -216,14 +216,34 @@ pub struct Util {}
 impl UtilTrait for Util {
     fn init() -> Result<(), Error> {
         unsafe {
-            let xsave_enabled = (core::arch::x86_64::__cpuid_count(1, 0).ecx & 1 << 26) != 0;
-            if !xsave_enabled {
-                return Err(Error::Unsupported);
-            }
-            let mut cr4: usize;
-            asm!("mov {0}, cr4", out(reg) cr4);
-            cr4 |= 1 << 18;
-            asm!("mov cr4, {0}", in(reg) cr4);
+            // GDT
+            let gdt = &mut *slice_from_raw_parts_mut(
+                memory::ALLOCATOR.as_mut().unwrap().alloc().unwrap() as *mut usize,
+                512,
+            );
+            gdt[0] = 0x00; // Null descriptor
+            gdt[1] = 0b01011001 << 40 | 0b0110 << 52; // Kernel code, 0x08
+            gdt[2] = 0b01001001 << 40 | 0b0100 << 52; // Kernel data, 0x10
+            gdt[3] = 0b01011111 << 40 | 0b0110 << 52; // User code, 0x18
+            gdt[4] = 0b01001111 << 40 | 0b0100 << 52; // User data, 0x20
+
+            // GDTR
+            let gdtr_addr = &mut gdt[510] as *mut usize as *mut u128;
+            *gdtr_addr = 0x27 | (gdt as *mut _ as *mut usize as u128) << 16;
+            asm!("lgdt [{0}]", in(reg) gdtr_addr);
+
+            asm!(
+                "push 0x08",
+                "push 2f",
+                "retfq",
+                "2:",
+                "mov ds, {0:x}",
+                "mov ss, {0:x}",
+                "mov es, {0:x}",
+                "mov fs, {0:x}",
+                "mov gs, {0:x}",
+                in(reg) 0x10
+            );
         }
         Ok(())
     }
@@ -429,7 +449,7 @@ impl InterruptTableTrait for InterruptTable {
             seq!(N in 0..=255 {
                 (&mut *data)[N] = InterruptDescriptor::new(
                     int_~N as *mut unsafe extern "x86-interrupt" fn() as *mut u8,
-                    0x28,
+                    0x08,
                     0,
                     0xE,
                     0,
