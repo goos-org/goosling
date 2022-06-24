@@ -11,6 +11,7 @@
 extern crate alloc;
 
 pub mod arch;
+pub mod exceptions;
 pub mod memory;
 pub mod terminals;
 
@@ -74,13 +75,6 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
         Util::halt_loop();
     }));
     Util::halt_loop();
-}
-
-fn page_fault(error_code: Option<ErrorCode>, _: usize, _: &mut usize) {
-    panic!(
-        "Page fault: {:?}",
-        error_code.expect("No error code given for page fault")
-    );
 }
 
 #[no_mangle]
@@ -170,16 +164,13 @@ extern "C" fn main() -> ! {
     terminal.ok("Initialized cpu");
 
     let mut idt = InterruptTable::new();
-    idt.set_interrupt_handler(
-        Util::interrupt_num(CpuInterrupt::PageFault).unwrap(),
-        page_fault,
-    );
+    exceptions::set_handlers(&mut idt);
     InterruptManager::set_interrupt_table(&mut idt).unwrap_or_else(|_| {
         panic!("Failed to set interrupt table");
     });
     InterruptManager::enable_interrupts();
 
-    let value = unsafe { *(0x00 as *const usize) };
+    let value: usize = unsafe { *(core::ptr::null()) };
 
     Util::halt_loop();
 }

@@ -397,7 +397,7 @@ unsafe fn int_handle() -> ! {
         "push r15",
         "mov rdi, [rsp + 128]",
         "mov rsi, [rsp + 120]",
-        "mov rdx, (rsp + 136)",
+        "lea rdx, [rsp + 136]",
         "cld",
         "call {int_handle_rust}",
         "pop r15",
