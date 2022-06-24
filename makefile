@@ -1,11 +1,21 @@
+
+ifeq ($(RELEASE), 1)
+KERNEL := kernel_release
+else
+KERNEL := kernel
+endif
+
 default: all
 
 all: iso
 
+release:
+	env RELEASE=1 make
+
 setup:
 	mkdir -p build
 
-iso: kernel limine
+iso: $(KERNEL) limine
 	rm -rf build/iso
 	mkdir build/iso
 	mkdir build/iso/boot
@@ -29,3 +39,7 @@ limine: setup
 	if ! [ -d "build/limine" ]; then rm -rf build/limine; \
 	cd build && git clone --branch v3.5.3-binary https://github.com/limine-bootloader/limine.git; \
 	cd limine && make limine-deploy; fi
+
+kernel_release: setup
+	cargo build --release
+	cp target/x86_64-goosling/release/goosling build/kernel
