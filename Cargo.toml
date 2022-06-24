@@ -12,3 +12,4 @@ seq-macro = "0.3.0"
 
 [profile.release]
 strip = true
+opt-level = 3
