@@ -222,27 +222,43 @@ impl UtilTrait for Util {
                 512,
             );
             gdt[0] = 0x00; // Null descriptor
-            gdt[1] = 0b01011001 << 40 | 0b0110 << 52; // Kernel code, 0x08
-            gdt[2] = 0b01001001 << 40 | 0b0100 << 52; // Kernel data, 0x10
-            gdt[3] = 0b01011111 << 40 | 0b0110 << 52; // User code, 0x18
-            gdt[4] = 0b01001111 << 40 | 0b0100 << 52; // User data, 0x20
+
+            gdt[1] = 0x00aff3000000ffff; // Kernel code 16, 0x08
+            gdt[2] = 0x000093000000ffff; // Kernel data 16, 0x10
+
+            gdt[3] = 0x00cf9a000000ffff; // Kernel code 32, 0x18
+            gdt[4] = 0x00cf93000000ffff; // Kernel data 32, 0x20
+
+            gdt[5] = 0x00af9b000000ffff; // Kernel code 64, 0x28
+            gdt[6] = 0x00af93000000ffff; // Kernel data 64, 0x30
+
+            gdt[7] = 0x00cffa000000ffff; // User code 32, 0x38
+            gdt[8] = 0x00cff3000000ffff; // User data 32, 0x40
+
+            gdt[9] = 0x00affb000000ffff; // User code 64, 0x48
+            gdt[10] = 0x00aff3000000ffff; // User data 64, 0x50
 
             // GDTR
             let gdtr_addr = &mut gdt[510] as *mut usize as *mut u128;
-            *gdtr_addr = 0x27 | (gdt as *mut _ as *mut usize as u128) << 16;
+            *gdtr_addr = 0x50 | (gdt as *mut _ as *mut usize as u128) << 16;
             asm!("lgdt [{0}]", in(reg) gdtr_addr);
 
             asm!(
-                "push 0x08",
-                "push 2f",
-                "retfq",
+                "mov {1}, rsp",
+                "push 0x30",
+                "push {1}",
+                "pushf",
+                "push 0x28",
+                "lea {1}, [rip + 2f]",
+                "push {1}",
+                "iretq",
                 "2:",
                 "mov ds, {0:x}",
-                "mov ss, {0:x}",
                 "mov es, {0:x}",
                 "mov fs, {0:x}",
                 "mov gs, {0:x}",
-                in(reg) 0x10
+                in(reg) 0x30,
+                out(reg) _
             );
         }
         Ok(())
@@ -449,7 +465,7 @@ impl InterruptTableTrait for InterruptTable {
             seq!(N in 0..=255 {
                 (&mut *data)[N] = InterruptDescriptor::new(
                     int_~N as *mut unsafe extern "x86-interrupt" fn() as *mut u8,
-                    0x08,
+                    0x28,
                     0,
                     0xE,
                     0,
