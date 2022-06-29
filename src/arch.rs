@@ -39,3 +39,8 @@ pub enum Error {
     Unsupported,
     Uninitialized,
 }
+
+pub struct CpuInfo {
+    pub userspace: bool,
+    pub cpu_id: usize,
+}

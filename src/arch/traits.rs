@@ -1,5 +1,6 @@
 use crate::arch::native::ErrorCode;
-use crate::arch::Error;
+use crate::arch::{CpuInfo, Error};
+use limine::LimineSmpInfo;
 
 pub trait PagingManagerTrait {
     type PageTable: PageTableTrait;
@@ -37,4 +38,15 @@ pub trait InterruptManagerTrait {
     fn set_interrupt_table(interrupt_table: &mut Self::InterruptTable) -> Result<(), Error>;
     fn get_interrupt_table<'a>() -> Result<&'a mut Self::InterruptTable, Error>;
     fn enable_interrupts();
+}
+
+pub trait CpuTrait {
+    type PageTable: PageTableTrait;
+    type InterruptTable: InterruptTableTrait;
+    fn init_cpu(limine_jump_addr: &mut fn(LimineSmpInfo), callback: fn(Self)) -> Result<(), Error>;
+    fn set_page_table(page_table: &Self::PageTable) -> Result<(), Error>;
+    fn get_page_table<'a>() -> Result<&'a mut Self::PageTable, Error>;
+    fn set_interrupt_table(interrupt_table: &mut Self::InterruptTable) -> Result<(), Error>;
+    fn get_interrupt_table<'a>() -> Result<&'a mut Self::InterruptTable, Error>;
+    fn get_info() -> Result<CpuInfo, Error>;
 }
