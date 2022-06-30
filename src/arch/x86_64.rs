@@ -1,7 +1,7 @@
 use crate::arch::traits::{
     CpuStateTrait, InterruptInfoTrait, InterruptManagerTrait, InterruptTableTrait, UtilTrait,
 };
-use crate::arch::{CpuInterrupt, Error, InterruptHandler};
+use crate::arch::{CpuInterrupt, Error};
 use crate::{memory, PageTableTrait, PagingManagerTrait};
 use core::arch::{asm, global_asm};
 use core::fmt::Debug;
