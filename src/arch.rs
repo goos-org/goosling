@@ -5,8 +5,6 @@ use crate::arch::native::ErrorCode;
 //#[cfg(target_arch = "x86_64")]
 pub use x86_64 as native;
 
-type InterruptHandler = fn(Option<ErrorCode>, usize, &'static mut usize);
-
 pub enum CpuInterrupt {
     DivideByZero,
     Debug,
