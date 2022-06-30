@@ -1,10 +1,4 @@
-#![feature(abi_x86_interrupt)]
-#![feature(alloc_error_handler)]
-#![feature(fn_traits)]
-#![feature(asm_sym)]
-#![feature(naked_functions)]
-#![feature(core_intrinsics)]
-#![feature(stmt_expr_attributes)]
+#![feature(naked_functions, asm_sym, alloc_error_handler, abi_x86_interrupt)]
 #![no_std]
 #![no_main]
 
@@ -13,6 +7,7 @@ extern crate alloc;
 pub mod arch;
 pub mod exceptions;
 pub mod memory;
+pub mod task;
 pub mod terminals;
 
 use crate::arch::native::{
