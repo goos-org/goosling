@@ -1,5 +1,5 @@
 use crate::arch::traits::{
-    InterruptInfoTrait, InterruptManagerTrait, InterruptTableTrait, UtilTrait,
+    CpuStateTrait, InterruptInfoTrait, InterruptManagerTrait, InterruptTableTrait, UtilTrait,
 };
 use crate::arch::{CpuInterrupt, Error, InterruptHandler};
 use crate::{memory, PageTableTrait, PagingManagerTrait};
@@ -395,9 +395,7 @@ unsafe fn int_handle() -> ! {
         "push r13",
         "push r14",
         "push r15",
-        "mov rdi, [rsp + 128]",
-        "mov rsi, [rsp + 120]",
-        "lea rdx, [rsp + 136]",
+        "lea rdi, [rsp]",
         "cld",
         "call {int_handle_rust}",
         "pop r15",
@@ -416,39 +414,145 @@ unsafe fn int_handle() -> ! {
         "pop rbx",
         "pop rax",
         "add rsp, 16",
-        "sti",
         "iretq",
         int_handle_rust = sym int_handle_rust,
         options(noreturn)
     )
 }
-extern "C" fn int_handle_rust(error_code: usize, interrupt_num: usize, rip: &'static mut usize) {
-    if let Some(handler) = InterruptManager::get_interrupt_table().unwrap().handlers[interrupt_num]
+extern "sysv64" fn int_handle_rust(interrupt_param: &mut InterruptParam) {
+    if let Some(handler) = InterruptManager::get_interrupt_table().unwrap().handlers
+        [interrupt_param.interrupt_number as usize]
     {
+        let mut state = CpuState {
+            ss: interrupt_param.ss,
+            rsp: interrupt_param.rsp,
+            rflags: interrupt_param.rflags,
+            cs: interrupt_param.cs,
+            rip: interrupt_param.rip,
+            rax: interrupt_param.rax,
+            rbx: interrupt_param.rbx,
+            rcx: interrupt_param.rcx,
+            rdx: interrupt_param.rdx,
+            rsi: interrupt_param.rsi,
+            rdi: interrupt_param.rdi,
+            rbp: interrupt_param.rbp,
+            r8: interrupt_param.r8,
+            r9: interrupt_param.r9,
+            r10: interrupt_param.r10,
+            r11: interrupt_param.r11,
+            r12: interrupt_param.r12,
+            r13: interrupt_param.r13,
+            r14: interrupt_param.r14,
+            r15: interrupt_param.r15,
+        };
         handler(
-            match interrupt_num {
-                10 | 11 | 12 | 13 | 14 | 29 | 30 => {
-                    Some(ErrorCode::from(error_code, interrupt_num))
-                }
+            match interrupt_param.interrupt_number {
+                10 | 11 | 12 | 13 | 14 | 29 | 30 => Some(ErrorCode::from(
+                    interrupt_param.error_code,
+                    interrupt_param.interrupt_number,
+                )),
                 _ => None,
             },
-            interrupt_num,
-            rip,
+            interrupt_param.interrupt_number,
+            &mut state,
         );
+        interrupt_param.ss = state.ss;
+        interrupt_param.rsp = state.rsp;
+        interrupt_param.rflags = state.rflags;
+        interrupt_param.cs = state.cs;
+        interrupt_param.rip = state.rip;
+        interrupt_param.rax = state.rax;
+        interrupt_param.rbx = state.rbx;
+        interrupt_param.rcx = state.rcx;
+        interrupt_param.rdx = state.rdx;
+        interrupt_param.rsi = state.rsi;
+        interrupt_param.rdi = state.rdi;
+        interrupt_param.rbp = state.rbp;
+        interrupt_param.r8 = state.r8;
+        interrupt_param.r9 = state.r9;
+        interrupt_param.r10 = state.r10;
+        interrupt_param.r11 = state.r11;
+        interrupt_param.r12 = state.r12;
+        interrupt_param.r13 = state.r13;
+        interrupt_param.r14 = state.r14;
+        interrupt_param.r15 = state.r15;
     } else {
-        panic!("No handler for interrupt 0x{:x}", interrupt_num);
+        panic!(
+            "No handler for interrupt 0x{:x}",
+            interrupt_param.interrupt_number
+        );
+    }
+}
+
+#[repr(C)]
+struct InterruptParam {
+    r15: u64,
+    r14: u64,
+    r13: u64,
+    r12: u64,
+    r11: u64,
+    r10: u64,
+    r9: u64,
+    r8: u64,
+    rbp: u64,
+    rdi: u64,
+    rsi: u64,
+    rdx: u64,
+    rcx: u64,
+    rbx: u64,
+    rax: u64,
+    interrupt_number: u64,
+    error_code: u64,
+    rip: u64,
+    cs: u64,
+    rflags: u64,
+    rsp: u64,
+    ss: u64,
+}
+
+pub struct CpuState {
+    ss: u64,
+    rsp: u64,
+    rflags: u64,
+    cs: u64,
+    rip: u64,
+    rax: u64,
+    rbx: u64,
+    rcx: u64,
+    rdx: u64,
+    rsi: u64,
+    rdi: u64,
+    rbp: u64,
+    r8: u64,
+    r9: u64,
+    r10: u64,
+    r11: u64,
+    r12: u64,
+    r13: u64,
+    r14: u64,
+    r15: u64,
+}
+impl CpuStateTrait for CpuState {
+    fn get_ip(&self) -> usize {
+        self.rip as usize
+    }
+    fn set_ip(&mut self, ip: usize) {
+        self.rip = ip as u64;
     }
 }
 
 pub struct InterruptTable {
     pub descriptor: InterruptTableDescriptor,
-    pub handlers: [Option<InterruptHandler>; 256],
+    pub handlers:
+        [Option<fn(Option<ErrorCode>, u64, &mut <Self as InterruptTableTrait>::CpuState)>; 256],
 }
 impl InterruptTableTrait for InterruptTable {
+    type CpuState = CpuState;
+
     fn set_interrupt_handler(
         &mut self,
         interrupt_num: usize,
-        handler: fn(Option<ErrorCode>, usize, &'static mut usize),
+        handler: fn(Option<ErrorCode>, u64, &mut Self::CpuState),
     ) {
         self.handlers[interrupt_num] = Some(handler);
     }
@@ -515,8 +619,8 @@ pub struct SegmentError {
     table: u8,
     index: u16,
 }
-impl From<usize> for SegmentError {
-    fn from(error_code: usize) -> Self {
+impl From<u64> for SegmentError {
+    fn from(error_code: u64) -> Self {
         Self {
             external: error_code & 0b01 > 0,
             table: ((error_code >> 1) & 0b11) as u8,
@@ -547,7 +651,7 @@ pub enum ErrorCode {
     SecurityException(u8),
 }
 impl ErrorCode {
-    pub fn from(error_code: usize, interrupt_num: usize) -> Self {
+    pub fn from(error_code: u64, interrupt_num: u64) -> Self {
         match interrupt_num {
             10 => ErrorCode::InvalidTss(SegmentError::from(error_code)),
             11 => ErrorCode::SegmentNotPresent(SegmentError::from(error_code)),

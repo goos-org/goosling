@@ -1,4 +1,5 @@
-use crate::arch::native::ErrorCode;
+use crate::arch::native::{CpuState, ErrorCode};
+use crate::arch::traits::CpuStateTrait;
 use crate::{CpuInterrupt, InterruptTable, InterruptTableTrait, Util};
 
 pub fn set_handlers(idt: &mut InterruptTable) {
@@ -70,196 +71,178 @@ pub fn set_handlers(idt: &mut InterruptTable) {
     }
 }
 
-pub fn divide_by_zero(error_code: Option<ErrorCode>, _: usize, instruction_pointer: &mut usize) {
+pub fn divide_by_zero(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
     panic!(
         "Division by zero (#DE) at {:x}\nError code: {:?}",
-        instruction_pointer, error_code
+        state.get_ip(),
+        error_code
     )
 }
 
-pub fn debug(error_code: Option<ErrorCode>, _: usize, instruction_pointer: &mut usize) {
+pub fn debug(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
     panic!(
         "Debug exception (#DB) at {:x}\nError code: {:?}",
-        instruction_pointer, error_code
+        state.get_ip(),
+        error_code
     )
 }
 
-pub fn nmi(error_code: Option<ErrorCode>, _: usize, instruction_pointer: &mut usize) {
+pub fn nmi(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
     panic!(
         "Non-maskable interrupt at {:x}\nError code: {:?}",
-        instruction_pointer, error_code
+        state.get_ip(),
+        error_code
     )
 }
 
-pub fn breakpoint(error_code: Option<ErrorCode>, _: usize, instruction_pointer: &mut usize) {
+pub fn breakpoint(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
     panic!(
         "Breakpoint (#BP) at {:x}\nError code: {:?}",
-        instruction_pointer, error_code
+        state.get_ip(),
+        error_code
     )
 }
 
-pub fn overflow(error_code: Option<ErrorCode>, _: usize, instruction_pointer: &mut usize) {
+pub fn overflow(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
     panic!(
         "Overflow exception (#OF) at {:x}\nError code: {:?}",
-        instruction_pointer, error_code
+        state.get_ip(),
+        error_code
     )
 }
 
-pub fn bound_range_exceeded(
-    error_code: Option<ErrorCode>,
-    _: usize,
-    instruction_pointer: &mut usize,
-) {
+pub fn bound_range_exceeded(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
     panic!(
         "Bound range exceeded exception (#BR) at {:x}\nError code: {:?}",
-        instruction_pointer, error_code
+        state.get_ip(),
+        error_code
     )
 }
 
-pub fn invalid_opcode(error_code: Option<ErrorCode>, _: usize, instruction_pointer: &mut usize) {
+pub fn invalid_opcode(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
     panic!(
         "Invalid opcode exception (#UD) at {:x}\nError code: {:?}",
-        instruction_pointer, error_code
+        state.get_ip(),
+        error_code
     )
 }
 
-pub fn device_unavailable(
-    error_code: Option<ErrorCode>,
-    _: usize,
-    instruction_pointer: &mut usize,
-) {
+pub fn device_unavailable(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
     panic!(
         "Device unavailable exception (#NM) at {:x}\nError code: {:?}",
-        instruction_pointer, error_code
+        state.get_ip(),
+        error_code
     )
 }
 
-pub fn invalid_tss(error_code: Option<ErrorCode>, _: usize, instruction_pointer: &mut usize) {
+pub fn invalid_tss(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
     panic!(
         "Invalid TSS exception (#TS) at {:x}\nError code: {:?}",
-        instruction_pointer, error_code
+        state.get_ip(),
+        error_code
     )
 }
 
-pub fn segment_not_present(
-    error_code: Option<ErrorCode>,
-    _: usize,
-    instruction_pointer: &mut usize,
-) {
+pub fn segment_not_present(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
     panic!(
         "Segment not present exception (#NP) at {:x}\nError code: {:?}",
-        instruction_pointer, error_code
+        state.get_ip(),
+        error_code
     )
 }
 
-pub fn stack_segment_fault(
-    error_code: Option<ErrorCode>,
-    _: usize,
-    instruction_pointer: &mut usize,
-) {
+pub fn stack_segment_fault(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
     panic!(
         "Stack segment fault (#SS) at {:x}\nError code: {:?}",
-        instruction_pointer, error_code
+        state.get_ip(),
+        error_code
     )
 }
 
-pub fn general_protection_fault(
-    error_code: Option<ErrorCode>,
-    _: usize,
-    instruction_pointer: &mut usize,
-) {
+pub fn general_protection_fault(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
     panic!(
         "General protection fault (#GP) at {:x}\nError code: {:?}",
-        instruction_pointer, error_code
+        state.get_ip(),
+        error_code
     )
 }
 
-pub fn page_fault(error_code: Option<ErrorCode>, _: usize, instruction_pointer: &mut usize) {
+pub fn page_fault(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
     panic!(
         "Page fault (#PF) at {:x}\nError code: {:?}",
-        instruction_pointer, error_code
+        state.get_ip(),
+        error_code
     )
 }
 
-pub fn fpu_exception(error_code: Option<ErrorCode>, _: usize, instruction_pointer: &mut usize) {
+pub fn fpu_exception(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
     panic!(
         "Floating point exception (#MF) at {:x}\nError code: {:?}",
-        instruction_pointer, error_code
+        state.get_ip(),
+        error_code
     )
 }
 
-pub fn alignment_check(error_code: Option<ErrorCode>, _: usize, instruction_pointer: &mut usize) {
+pub fn alignment_check(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
     panic!(
         "Alignment check (#AC) at {:x}\nError code: {:?}",
-        instruction_pointer, error_code
+        state.get_ip(),
+        error_code
     )
 }
 
-pub fn machine_check(error_code: Option<ErrorCode>, _: usize, instruction_pointer: &mut usize) {
+pub fn machine_check(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
     panic!(
         "Machine check (#MC) at {:x}\nError code: {:?}",
-        instruction_pointer, error_code
+        state.get_ip(),
+        error_code
     )
 }
 
-pub fn simd_exception(error_code: Option<ErrorCode>, _: usize, instruction_pointer: &mut usize) {
+pub fn simd_exception(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
     panic!(
         "SIMD exception (#XM/#XF) at {:x}\nError code: {:?}",
-        instruction_pointer, error_code
+        state.get_ip(),
+        error_code
     )
 }
 
-pub fn virtualization_exception(
-    error_code: Option<ErrorCode>,
-    _: usize,
-    instruction_pointer: &mut usize,
-) {
+pub fn virtualization_exception(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
     panic!(
         "Virtualization exception (#VE) at {:x}\nError code: {:?}",
-        instruction_pointer, error_code
+        state.get_ip(),
+        error_code
     )
 }
 
-pub fn control_protection_exception(
-    error_code: Option<ErrorCode>,
-    _: usize,
-    instruction_pointer: &mut usize,
-) {
+pub fn control_protection_exception(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
     panic!(
         "Control protection exception (#CP) at {:x}\nError code: {:?}",
-        instruction_pointer, error_code
+        state.get_ip(),
+        error_code
     )
 }
 
-pub fn hypervisor_injection_exception(
-    error_code: Option<ErrorCode>,
-    _: usize,
-    instruction_pointer: &mut usize,
-) {
+pub fn hypervisor_injection_exception(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
     panic!(
         "Hypervisor injection exception (#HV) at {:x}\nError code: {:?}",
-        instruction_pointer, error_code
+        state.get_ip(),
+        error_code
     )
 }
 
-pub fn vmm_communication_exception(
-    error_code: Option<ErrorCode>,
-    _: usize,
-    instruction_pointer: &mut usize,
-) {
+pub fn vmm_communication_exception(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
     panic!(
         "VMM communication exception (#VC) at {:x}\nError code: {:?}",
-        instruction_pointer, error_code
+        state.get_ip(),
+        error_code
     )
 }
 
-pub fn security_exception(
-    error_code: Option<ErrorCode>,
-    _: usize,
-    instruction_pointer: &mut usize,
-) {
+pub fn security_exception(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
     panic!(
         "Security exception (#SX) at {:x}\nError code: {:?}",
-        instruction_pointer, error_code
+        state.get_ip(),
+        error_code
     )
 }

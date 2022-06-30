@@ -25,10 +25,11 @@ pub trait InterruptInfoTrait {
 }
 
 pub trait InterruptTableTrait {
+    type CpuState: CpuStateTrait;
     fn set_interrupt_handler(
         &mut self,
         interrupt_num: usize,
-        handler: fn(Option<ErrorCode>, usize, &'static mut usize),
+        handler: fn(Option<ErrorCode>, u64, &mut Self::CpuState),
     );
     fn new() -> Self;
 }
@@ -49,4 +50,9 @@ pub trait CpuTrait {
     fn set_interrupt_table(interrupt_table: &mut Self::InterruptTable) -> Result<(), Error>;
     fn get_interrupt_table<'a>() -> Result<&'a mut Self::InterruptTable, Error>;
     fn get_info() -> Result<CpuInfo, Error>;
+}
+
+pub trait CpuStateTrait {
+    fn get_ip(&self) -> usize;
+    fn set_ip(&mut self, ip: usize);
 }
