@@ -1,7 +1,4 @@
-use crate::arch::traits::{
-    CpuStateTrait, InterruptInfoTrait, InterruptManagerTrait, InterruptTableTrait, UtilTrait,
-};
-use crate::arch::{CpuInterrupt, Error};
+use crate::arch::{CpuInfo, CpuInterrupt, Error};
 use crate::{memory, PageTableTrait, PagingManagerTrait};
 use core::arch::{asm, global_asm};
 use core::fmt::Debug;
@@ -12,31 +9,7 @@ extern "x86-interrupt" {
     seq!(N in 0..=255 { fn int_~N(); });
 }
 
-pub struct PagingManager {}
-impl PagingManagerTrait for PagingManager {
-    type PageTable = PageTable;
-    fn set_page_table(page_table: &Self::PageTable) -> Result<(), Error> {
-        if page_table as *const PageTable as u64 % 0x1000 != 0 {
-            return Err(Error::MisAligned);
-        }
-        unsafe {
-            asm!("mov cr3, rax", in("rax") page_table as *const PageTable as u64);
-        }
-        Ok(())
-    }
-
-    fn get_page_table<'a>() -> Result<&'a mut PageTable, Error> {
-        let addr: u64;
-        unsafe { asm!("mov rax, cr3", out("rax") addr) };
-        if addr % 0x1000 == 0 {
-            Ok(unsafe { &mut *(addr as *mut PageTable) })
-        } else {
-            Err(Error::MisAligned)
-        }
-    }
-}
-
-pub struct PageTableEntry {
+struct PageTableEntry {
     data: u64,
 }
 impl PageTableEntry {
@@ -94,8 +67,8 @@ impl PageTableEntry {
 pub struct PageTable {
     pml4: [u64; 512],
 }
-impl PageTableTrait for PageTable {
-    fn map_page(&mut self, virtual_addr: usize, physical_addr: usize) {
+impl PageTable {
+    pub fn map_page(&mut self, virtual_addr: usize, physical_addr: usize) {
         unsafe {
             let pml4_index = virtual_addr >> 39;
             let mut pml4_entry = PageTableEntry::from_data(self.pml4[pml4_index]);
@@ -143,7 +116,7 @@ impl PageTableTrait for PageTable {
             pml1[pml1_index] = pml1_entry.data;
         }
     }
-    fn unmap_page(&mut self, virtual_addr: usize) {
+    pub fn unmap_page(&mut self, virtual_addr: usize) {
         unsafe {
             let pml4_index = virtual_addr >> 39;
             let pml4_entry = PageTableEntry::from_data(self.pml4[pml4_index]);
@@ -167,7 +140,7 @@ impl PageTableTrait for PageTable {
             pml1[pml1_index] = 0;
         }
     }
-    fn get_physical_addr(&self, virtual_addr: usize) -> Option<usize> {
+    pub fn get_physical_addr(&self, virtual_addr: usize) -> Option<usize> {
         unsafe {
             let pml4_index = virtual_addr >> 39;
             let pml4_entry = PageTableEntry::from_data(self.pml4[pml4_index]);
@@ -197,24 +170,9 @@ impl PageTableTrait for PageTable {
     }
 }
 
-#[repr(C, align(64))]
-pub struct SimdState {
-    pub data: [u8],
-}
-impl SimdState {
-    pub fn alloc(size: usize) -> *mut SimdState {
-        if let Some(allocator) = unsafe { &mut memory::ALLOCATOR } {
-            let page = allocator.alloc().unwrap();
-            slice_from_raw_parts_mut(page as *mut u8, size) as *mut SimdState
-        } else {
-            unimplemented!("Can't allocate memory");
-        }
-    }
-}
-
 pub struct Util {}
-impl UtilTrait for Util {
-    fn init() -> Result<(), Error> {
+impl Util {
+    pub fn init() -> Result<(), Error> {
         unsafe {
             // GDT
             let gdt = &mut *slice_from_raw_parts_mut(
@@ -263,7 +221,7 @@ impl UtilTrait for Util {
         }
         Ok(())
     }
-    fn halt_loop() -> ! {
+    pub fn halt_loop() -> ! {
         loop {
             unsafe {
                 asm!("hlt", options(nomem, nostack));
@@ -420,10 +378,10 @@ unsafe fn int_handle() -> ! {
     )
 }
 extern "sysv64" fn int_handle_rust(interrupt_param: &mut InterruptParam) {
-    if let Some(handler) = InterruptManager::get_interrupt_table().unwrap().handlers
+    if let Some(handler) = Cpu::get_current_cpu().unwrap().interrupt_table().0.handlers
         [interrupt_param.interrupt_number as usize]
     {
-        let mut state = CpuState {
+        let mut state = super::CpuState(CpuState {
             ss: interrupt_param.ss,
             rsp: interrupt_param.rsp,
             rflags: interrupt_param.rflags,
@@ -444,7 +402,7 @@ extern "sysv64" fn int_handle_rust(interrupt_param: &mut InterruptParam) {
             r13: interrupt_param.r13,
             r14: interrupt_param.r14,
             r15: interrupt_param.r15,
-        };
+        });
         handler(
             match interrupt_param.interrupt_number {
                 10 | 11 | 12 | 13 | 14 | 29 | 30 => Some(ErrorCode::from(
@@ -456,26 +414,26 @@ extern "sysv64" fn int_handle_rust(interrupt_param: &mut InterruptParam) {
             interrupt_param.interrupt_number,
             &mut state,
         );
-        interrupt_param.ss = state.ss;
-        interrupt_param.rsp = state.rsp;
-        interrupt_param.rflags = state.rflags;
-        interrupt_param.cs = state.cs;
-        interrupt_param.rip = state.rip;
-        interrupt_param.rax = state.rax;
-        interrupt_param.rbx = state.rbx;
-        interrupt_param.rcx = state.rcx;
-        interrupt_param.rdx = state.rdx;
-        interrupt_param.rsi = state.rsi;
-        interrupt_param.rdi = state.rdi;
-        interrupt_param.rbp = state.rbp;
-        interrupt_param.r8 = state.r8;
-        interrupt_param.r9 = state.r9;
-        interrupt_param.r10 = state.r10;
-        interrupt_param.r11 = state.r11;
-        interrupt_param.r12 = state.r12;
-        interrupt_param.r13 = state.r13;
-        interrupt_param.r14 = state.r14;
-        interrupt_param.r15 = state.r15;
+        interrupt_param.ss = state.0.ss;
+        interrupt_param.rsp = state.0.rsp;
+        interrupt_param.rflags = state.0.rflags;
+        interrupt_param.cs = state.0.cs;
+        interrupt_param.rip = state.0.rip;
+        interrupt_param.rax = state.0.rax;
+        interrupt_param.rbx = state.0.rbx;
+        interrupt_param.rcx = state.0.rcx;
+        interrupt_param.rdx = state.0.rdx;
+        interrupt_param.rsi = state.0.rsi;
+        interrupt_param.rdi = state.0.rdi;
+        interrupt_param.rbp = state.0.rbp;
+        interrupt_param.r8 = state.0.r8;
+        interrupt_param.r9 = state.0.r9;
+        interrupt_param.r10 = state.0.r10;
+        interrupt_param.r11 = state.0.r11;
+        interrupt_param.r12 = state.0.r12;
+        interrupt_param.r13 = state.0.r13;
+        interrupt_param.r14 = state.0.r14;
+        interrupt_param.r15 = state.0.r15;
     } else {
         panic!(
             "No handler for interrupt 0x{:x}",
@@ -532,32 +490,29 @@ pub struct CpuState {
     r14: u64,
     r15: u64,
 }
-impl CpuStateTrait for CpuState {
-    fn get_ip(&self) -> usize {
+impl CpuState {
+    pub fn get_ip(&self) -> usize {
         self.rip as usize
     }
-    fn set_ip(&mut self, ip: usize) {
+    pub fn set_ip(&mut self, ip: usize) {
         self.rip = ip as u64;
     }
 }
 
 pub struct InterruptTable {
     pub descriptor: InterruptTableDescriptor,
-    pub handlers:
-        [Option<fn(Option<ErrorCode>, u64, &mut <Self as InterruptTableTrait>::CpuState)>; 256],
+    pub handlers: [Option<fn(Option<ErrorCode>, u64, &mut super::CpuState)>; 256],
 }
-impl InterruptTableTrait for InterruptTable {
-    type CpuState = CpuState;
-
-    fn set_interrupt_handler(
+impl InterruptTable {
+    pub fn set_interrupt_handler(
         &mut self,
         interrupt_num: usize,
-        handler: fn(Option<ErrorCode>, u64, &mut Self::CpuState),
+        handler: fn(Option<ErrorCode>, u64, &mut super::CpuState),
     ) {
         self.handlers[interrupt_num] = Some(handler);
     }
 
-    fn new() -> Self {
+    pub fn new() -> Self {
         let allocator = unsafe { memory::ALLOCATOR.as_mut().unwrap() };
         let data =
             slice_from_raw_parts_mut(allocator.alloc().unwrap() as *mut InterruptDescriptor, 4096);
@@ -589,29 +544,6 @@ impl InterruptTableTrait for InterruptTable {
 }
 
 static mut INTERRUPT_TABLE: Option<*mut InterruptTable> = None;
-
-pub struct InterruptManager {}
-impl InterruptManagerTrait for InterruptManager {
-    type InterruptTable = InterruptTable;
-
-    fn set_interrupt_table(interrupt_table: &mut Self::InterruptTable) -> Result<(), Error> {
-        unsafe {
-            INTERRUPT_TABLE = Some(interrupt_table);
-            asm!("lidt [{0}]", in(reg) &interrupt_table.descriptor as *const InterruptTableDescriptor);
-        }
-        Ok(())
-    }
-
-    fn get_interrupt_table<'a>() -> Result<&'a mut Self::InterruptTable, Error> {
-        Ok(unsafe { &mut *INTERRUPT_TABLE.ok_or(Error::Uninitialized)? })
-    }
-
-    fn enable_interrupts() {
-        unsafe {
-            asm!("sti", options(nostack, nomem));
-        }
-    }
-}
 
 #[derive(Debug)]
 pub struct SegmentError {
@@ -680,6 +612,46 @@ impl ErrorCode {
                 "Invalid error code {} for interrupt {}",
                 error_code, interrupt_num
             ),
+        }
+    }
+}
+
+pub struct Cpu<'a> {
+    pointer: *const Cpu<'a>,
+    info: CpuInfo,
+    page_table: &'a mut super::PageTable,
+    interrupt_table: &'a mut super::InterruptTable,
+}
+impl<'a> Cpu<'a> {
+    pub fn info(&self) -> &CpuInfo {
+        &self.info
+    }
+    pub fn page_table(&self) -> &super::PageTable {
+        self.page_table
+    }
+    pub fn interrupt_table(&self) -> &super::InterruptTable {
+        &self.interrupt_table
+    }
+    pub fn set_page_table(&mut self, page_table: &mut super::PageTable) {
+        self.page_table = page_table;
+        unsafe {}
+    }
+    pub fn set_interrupt_table(&mut self, interrupt_table: &mut super::InterruptTable) {
+        self.interrupt_table = interrupt_table;
+        unsafe {
+            asm!("lidt [{0}]", in(reg) &mut self.interrupt_table.0.descriptor);
+        }
+    }
+    pub fn set_as_current_cpu(&self) {
+        unsafe {
+            asm!("wrgsbase {0}", in(reg) self as *const Self);
+        }
+    }
+    pub fn get_current_cpu() -> Option<&'a super::Cpu<'a>> {
+        let out: *const super::Cpu<'a>;
+        unsafe {
+            asm!("mov {0}, [gs:0]", out(reg) out);
+            core::mem::transmute(out)
         }
     }
 }
