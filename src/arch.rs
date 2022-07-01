@@ -1,4 +1,4 @@
-pub mod x86_64;
+mod x86_64;
 
 use crate::arch::native::ErrorCode;
 #[cfg(target_arch = "x86_64")]
@@ -49,6 +49,9 @@ impl InterruptTable {
         handler: fn(Option<ErrorCode>, u64, &mut CpuState),
     ) {
         self.0.set_interrupt_handler(interrupt_num, handler);
+    }
+    pub fn new() -> Self {
+        InterruptTable(native::InterruptTable::new())
     }
 }
 

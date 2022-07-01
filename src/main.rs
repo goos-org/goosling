@@ -10,14 +10,7 @@ pub mod memory;
 pub mod task;
 pub mod terminals;
 
-use crate::arch::native::{
-    ErrorCode, ExceptionStackFrame, InterruptTable, InterruptTableDescriptor, PagingManager, Util,
-};
-use crate::arch::traits::{
-    InterruptManagerTrait, InterruptTableTrait, PageTableTrait, PagingManagerTrait, UtilTrait,
-};
-use crate::arch::x86_64::InterruptManager;
-use crate::arch::{CpuInterrupt, Error};
+use crate::arch::{CpuInterrupt, Error, InterruptTable, Util};
 use crate::memory::BitmapAllocator;
 use crate::terminals::Terminal;
 use alloc::string::ToString;
@@ -81,23 +74,6 @@ extern "C" fn main() -> ! {
     terminal.info("Hello, world!");
     terminal.ok("Booted from Limine");
     terminal.ok("Initialized terminal");
-    terminal.info("Testing paging");
-    terminal.info("Getting page table");
-    let page_table = PagingManager::get_page_table().unwrap_or_else(|_| {
-        terminal.fail("Failed to get page table");
-        Util::halt_loop();
-    });
-    terminal.ok("Got page table");
-    let page_1 = page_table.get_physical_addr(0x1000).unwrap_or_else(|| {
-        terminal.fail("Failed to get page 0");
-        Util::halt_loop();
-    });
-    if page_1 == 0x1000 {
-        terminal.ok("Paging correctly initialized");
-    } else {
-        terminal.fail("Paging initialized incorrectly");
-        Util::halt_loop();
-    }
     terminal.info("Reading memory map");
     let mmap = MMAP_REQUEST.get_response().get().unwrap_or_else(|| {
         terminal.fail("Failed to read memory map");
@@ -160,10 +136,6 @@ extern "C" fn main() -> ! {
 
     let mut idt = InterruptTable::new();
     exceptions::set_handlers(&mut idt);
-    InterruptManager::set_interrupt_table(&mut idt).unwrap_or_else(|_| {
-        panic!("Failed to set interrupt table");
-    });
-    InterruptManager::enable_interrupts();
 
     let value: usize = unsafe { *(core::ptr::null()) };
 
