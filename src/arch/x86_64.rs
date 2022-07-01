@@ -378,10 +378,10 @@ unsafe fn int_handle() -> ! {
     )
 }
 extern "sysv64" fn int_handle_rust(interrupt_param: &mut InterruptParam) {
-    if let Some(handler) = InterruptManager::get_interrupt_table().unwrap().handlers
+    if let Some(handler) = Cpu::get_current_cpu().unwrap().interrupt_table().0.handlers
         [interrupt_param.interrupt_number as usize]
     {
-        let mut state = CpuState {
+        let mut state = super::CpuState(CpuState {
             ss: interrupt_param.ss,
             rsp: interrupt_param.rsp,
             rflags: interrupt_param.rflags,
@@ -402,7 +402,7 @@ extern "sysv64" fn int_handle_rust(interrupt_param: &mut InterruptParam) {
             r13: interrupt_param.r13,
             r14: interrupt_param.r14,
             r15: interrupt_param.r15,
-        };
+        });
         handler(
             match interrupt_param.interrupt_number {
                 10 | 11 | 12 | 13 | 14 | 29 | 30 => Some(ErrorCode::from(
@@ -414,26 +414,26 @@ extern "sysv64" fn int_handle_rust(interrupt_param: &mut InterruptParam) {
             interrupt_param.interrupt_number,
             &mut state,
         );
-        interrupt_param.ss = state.ss;
-        interrupt_param.rsp = state.rsp;
-        interrupt_param.rflags = state.rflags;
-        interrupt_param.cs = state.cs;
-        interrupt_param.rip = state.rip;
-        interrupt_param.rax = state.rax;
-        interrupt_param.rbx = state.rbx;
-        interrupt_param.rcx = state.rcx;
-        interrupt_param.rdx = state.rdx;
-        interrupt_param.rsi = state.rsi;
-        interrupt_param.rdi = state.rdi;
-        interrupt_param.rbp = state.rbp;
-        interrupt_param.r8 = state.r8;
-        interrupt_param.r9 = state.r9;
-        interrupt_param.r10 = state.r10;
-        interrupt_param.r11 = state.r11;
-        interrupt_param.r12 = state.r12;
-        interrupt_param.r13 = state.r13;
-        interrupt_param.r14 = state.r14;
-        interrupt_param.r15 = state.r15;
+        interrupt_param.ss = state.0.ss;
+        interrupt_param.rsp = state.0.rsp;
+        interrupt_param.rflags = state.0.rflags;
+        interrupt_param.cs = state.0.cs;
+        interrupt_param.rip = state.0.rip;
+        interrupt_param.rax = state.0.rax;
+        interrupt_param.rbx = state.0.rbx;
+        interrupt_param.rcx = state.0.rcx;
+        interrupt_param.rdx = state.0.rdx;
+        interrupt_param.rsi = state.0.rsi;
+        interrupt_param.rdi = state.0.rdi;
+        interrupt_param.rbp = state.0.rbp;
+        interrupt_param.r8 = state.0.r8;
+        interrupt_param.r9 = state.0.r9;
+        interrupt_param.r10 = state.0.r10;
+        interrupt_param.r11 = state.0.r11;
+        interrupt_param.r12 = state.0.r12;
+        interrupt_param.r13 = state.0.r13;
+        interrupt_param.r14 = state.0.r14;
+        interrupt_param.r15 = state.0.r15;
     } else {
         panic!(
             "No handler for interrupt 0x{:x}",
@@ -617,11 +617,12 @@ impl ErrorCode {
 }
 
 pub struct Cpu<'a> {
+    pointer: *const Cpu<'a>,
     info: CpuInfo,
     page_table: &'a mut super::PageTable,
     interrupt_table: &'a mut super::InterruptTable,
 }
-impl Cpu<'_> {
+impl<'a> Cpu<'a> {
     pub fn info(&self) -> &CpuInfo {
         &self.info
     }
@@ -639,6 +640,18 @@ impl Cpu<'_> {
         self.interrupt_table = interrupt_table;
         unsafe {
             asm!("lidt [{0}]", in(reg) &mut self.interrupt_table.0.descriptor);
+        }
+    }
+    pub fn set_as_current_cpu(&self) {
+        unsafe {
+            asm!("wrgsbase {0}", in(reg) self as *const Self);
+        }
+    }
+    pub fn get_current_cpu() -> Option<&'a super::Cpu<'a>> {
+        let out: *const super::Cpu<'a>;
+        unsafe {
+            asm!("mov {0}, [gs:0]", out(reg) out);
+            core::mem::transmute(out)
         }
     }
 }

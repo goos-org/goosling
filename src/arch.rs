@@ -91,7 +91,7 @@ pub struct CpuInfo {
 }
 
 pub struct Cpu<'a>(native::Cpu<'a>);
-impl Cpu<'_> {
+impl<'a> Cpu<'a> {
     pub fn info(&self) -> &CpuInfo {
         self.0.info()
     }
@@ -106,5 +106,11 @@ impl Cpu<'_> {
     }
     pub fn set_interrupt_table(&mut self, interrupt_table: &mut InterruptTable) {
         self.0.set_interrupt_table(interrupt_table)
+    }
+    pub fn set_as_current_cpu(&self) {
+        self.0.set_as_current_cpu()
+    }
+    pub fn get_current_cpu() -> Option<&'a Cpu<'a>> {
+        native::Cpu::get_current_cpu()
     }
 }
