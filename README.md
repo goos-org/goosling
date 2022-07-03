@@ -21,11 +21,12 @@ You can also use `qemu-system-x86_64` to run the iso (`qemu-system-x86_64 -cdrom
 
 ## Debugging
 In order to debug with qemu, you can simply pass the `-S` and `-s` flags.
-This will create a gdb remote on `tcp:9000`.
-You can connect with gdb (`target remote localhost:9000`) or with your IDE:
+This will create a gdb remote on `tcp:1234`.
+You can connect with gdb (`target remote localhost:1234`) or with your IDE:
 - CLion:
   - Add a "Remote Debug" run configuration
-  - Set `'target remote' args` to `localhost:9000`
+  - Set `'target remote' args` to `localhost:1234`
+  - Set `symbol file` to `build/kernel`
   - Run qemu with `-S` and `-s` first, then debug
 - Visual Studio Code:
   - Add this to your `launch.json`: 
@@ -35,7 +36,7 @@ You can connect with gdb (`target remote localhost:9000`) or with your IDE:
         "request": "attach",
         "name": "Attach to gdbserver",
         "executable": "build/kernel",
-        "target": "localhost:9000",
+        "target": "localhost:1234",
         "remote": true,
         "cwd": "${workspaceRoot}",
         "gdbpath": "path/to/your/gdb"
