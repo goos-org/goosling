@@ -14,6 +14,7 @@ A simple x86_64 kernel
 The kernel can be built using `cargo build`.
 You can also create a bootable iso using the `make iso` (`all`/`default`) target.
 This will automatically download limine and build the kernel.
+A release build can be made by passing the `RELEASE=1` environment variable, or using `make release`.
 
 ## Usage
 You can run the iso natively by burning it to a dvd or writing it to a usb drive (with [rufus](https://rufus.ie/en/), for example).
