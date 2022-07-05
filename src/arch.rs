@@ -23,7 +23,7 @@ impl PageTable {
 #[repr(transparent)]
 pub struct Util(native::Util);
 impl Util {
-    pub fn init() -> Result<(), Error> {
+    pub fn init() -> Result<()> {
         native::Util::init()
     }
     pub fn halt_loop() -> ! {
