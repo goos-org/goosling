@@ -1,5 +1,5 @@
 use crate::arch::{CpuInfo, CpuInterrupt, Error};
-use crate::{memory, PageTableTrait, PagingManagerTrait};
+use crate::memory;
 use core::arch::{asm, global_asm};
 use core::fmt::Debug;
 use core::ptr::{slice_from_raw_parts_mut, NonNull};
