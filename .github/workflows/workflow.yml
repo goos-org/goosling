@@ -6,12 +6,16 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
-      - name: Install latest nightly
+      - name: Install latest nightly native
         uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
           override: true
-          target: "x86_64-unknown-none"
+      - name: Install latest nightly target
+          uses: actions-rs/toolchain@v1
+          with:
+            toolchain: nightly
+            override: true
       - name: "Make debug"
         run: make iso
       - name: "Make release"
