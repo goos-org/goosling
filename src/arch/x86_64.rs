@@ -405,10 +405,10 @@ extern "sysv64" fn int_handle_rust(interrupt_param: &mut InterruptParam) {
         });
         handler(
             match interrupt_param.interrupt_number {
-                10 | 11 | 12 | 13 | 14 | 29 | 30 => Some(ErrorCode::from(
+                10 | 11 | 12 | 13 | 14 | 29 | 30 => Some(super::ErrorCode(ErrorCode::from(
                     interrupt_param.error_code,
                     interrupt_param.interrupt_number,
-                )),
+                ))),
                 _ => None,
             },
             interrupt_param.interrupt_number,
@@ -501,13 +501,13 @@ impl CpuState {
 
 pub struct InterruptTable {
     pub descriptor: InterruptTableDescriptor,
-    pub handlers: [Option<fn(Option<ErrorCode>, u64, &mut super::CpuState)>; 256],
+    pub handlers: [Option<fn(Option<super::ErrorCode>, u64, &mut super::CpuState)>; 256],
 }
 impl InterruptTable {
     pub fn set_interrupt_handler(
         &mut self,
         interrupt_num: usize,
-        handler: fn(Option<ErrorCode>, u64, &mut super::CpuState),
+        handler: fn(Option<super::ErrorCode>, u64, &mut super::CpuState),
     ) {
         self.handlers[interrupt_num] = Some(handler);
     }

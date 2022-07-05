@@ -1,4 +1,4 @@
-use crate::arch::{CpuInterrupt, InterruptTable, Util};
+use crate::arch::{CpuInterrupt, CpuState, ErrorCode, InterruptTable, Util};
 
 pub fn set_handlers(idt: &mut InterruptTable) {
     if let Some(int_num) = Util::interrupt_num(CpuInterrupt::DivideByZero) {

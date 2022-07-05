@@ -1,6 +1,6 @@
 mod x86_64;
 
-use crate::arch::native::ErrorCode;
+use core::fmt::Debug;
 #[cfg(target_arch = "x86_64")]
 use x86_64 as native;
 
@@ -88,6 +88,19 @@ pub enum Error {
     MisAligned,
     Unsupported,
     Uninitialized,
+}
+
+#[repr(transparent)]
+pub struct ErrorCode(native::ErrorCode);
+impl ErrorCode {
+    pub fn from(error_code: u64, interrupt_num: u64) -> Self {
+        ErrorCode(native::ErrorCode::from(error_code, interrupt_num))
+    }
+}
+impl Debug for ErrorCode {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        self.0.fmt(f)
+    }
 }
 
 pub struct CpuInfo {
