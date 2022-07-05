@@ -1,0 +1,10 @@
+name: Build
+on: push
+jobs:
+  - name: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Make debug"
+        run: make iso
+      - name: "Make release"
+        run: env RELEASE=1 make iso
