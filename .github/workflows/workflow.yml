@@ -11,6 +11,8 @@ jobs:
         with:
           toolchain: nightly
           override: true
+          target: x86_64-unknown-none
+          components: rust-src
       - name: "Make debug"
         run: make iso
       - name: "Make release"
