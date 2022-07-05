@@ -49,8 +49,8 @@ impl InterruptTable {
         &mut self,
         interrupt: CpuInterrupt,
         handler: fn(Option<ErrorCode>, CpuInterrupt, &mut CpuState),
-    ) {
-        self.0.set_interrupt_handler(interrupt, handler);
+    ) -> Result<()> {
+        self.0.set_interrupt_handler(interrupt, handler)
     }
     pub fn new() -> Self {
         InterruptTable(native::InterruptTable::new())
@@ -137,10 +137,10 @@ impl<'a> Cpu<'a> {
     pub fn interrupt_table(&self) -> &InterruptTable {
         self.0.interrupt_table()
     }
-    pub fn set_page_table(&mut self, page_table: &mut PageTable) {
+    pub fn set_page_table(&mut self, page_table: &'a mut PageTable) {
         self.0.set_page_table(page_table)
     }
-    pub fn set_interrupt_table(&mut self, interrupt_table: &mut InterruptTable) {
+    pub fn set_interrupt_table(&mut self, interrupt_table: &'a mut InterruptTable) {
         self.0.set_interrupt_table(interrupt_table)
     }
     pub fn set_as_current_cpu(&self) {

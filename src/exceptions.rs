@@ -1,75 +1,112 @@
 use crate::arch::{CpuInterrupt, CpuState, ErrorCode, InterruptTable, Util};
 
 pub fn set_handlers(idt: &mut InterruptTable) {
-    if let Some(int_num) = Util::interrupt_num(CpuInterrupt::DivideByZero) {
-        idt.set_interrupt_handler(int_num, divide_by_zero);
-    }
-    if let Some(int_num) = Util::interrupt_num(CpuInterrupt::Debug) {
-        idt.set_interrupt_handler(int_num, debug);
-    }
-    if let Some(int_num) = Util::interrupt_num(CpuInterrupt::NonMaskableInterrupt) {
-        idt.set_interrupt_handler(int_num, nmi);
-    }
-    if let Some(int_num) = Util::interrupt_num(CpuInterrupt::Breakpoint) {
-        idt.set_interrupt_handler(int_num, breakpoint);
-    }
-    if let Some(int_num) = Util::interrupt_num(CpuInterrupt::Overflow) {
-        idt.set_interrupt_handler(int_num, overflow);
-    }
-    if let Some(int_num) = Util::interrupt_num(CpuInterrupt::BoundRangeExceeded) {
-        idt.set_interrupt_handler(int_num, bound_range_exceeded);
-    }
-    if let Some(int_num) = Util::interrupt_num(CpuInterrupt::InvalidOpcode) {
-        idt.set_interrupt_handler(int_num, invalid_opcode);
-    }
-    if let Some(int_num) = Util::interrupt_num(CpuInterrupt::DeviceUnavailable) {
-        idt.set_interrupt_handler(int_num, device_unavailable);
-    }
-    if let Some(int_num) = Util::interrupt_num(CpuInterrupt::InvalidTss) {
-        idt.set_interrupt_handler(int_num, invalid_tss);
-    }
-    if let Some(int_num) = Util::interrupt_num(CpuInterrupt::SegmentNotPresent) {
-        idt.set_interrupt_handler(int_num, segment_not_present);
-    }
-    if let Some(int_num) = Util::interrupt_num(CpuInterrupt::StackSegmentFault) {
-        idt.set_interrupt_handler(int_num, stack_segment_fault);
-    }
-    if let Some(int_num) = Util::interrupt_num(CpuInterrupt::GeneralProtectionFault) {
-        idt.set_interrupt_handler(int_num, general_protection_fault);
-    }
-    if let Some(int_num) = Util::interrupt_num(CpuInterrupt::PageFault) {
-        idt.set_interrupt_handler(int_num, page_fault);
-    }
-    if let Some(int_num) = Util::interrupt_num(CpuInterrupt::FloatingPointException) {
-        idt.set_interrupt_handler(int_num, fpu_exception);
-    }
-    if let Some(int_num) = Util::interrupt_num(CpuInterrupt::AlignmentCheck) {
-        idt.set_interrupt_handler(int_num, alignment_check);
-    }
-    if let Some(int_num) = Util::interrupt_num(CpuInterrupt::MachineCheck) {
-        idt.set_interrupt_handler(int_num, machine_check);
-    }
-    if let Some(int_num) = Util::interrupt_num(CpuInterrupt::SimdException) {
-        idt.set_interrupt_handler(int_num, simd_exception);
-    }
-    if let Some(int_num) = Util::interrupt_num(CpuInterrupt::VirtualizationException) {
-        idt.set_interrupt_handler(int_num, virtualization_exception);
-    }
-    if let Some(int_num) = Util::interrupt_num(CpuInterrupt::ControlProtectionException) {
-        idt.set_interrupt_handler(int_num, control_protection_exception);
-    }
-    if let Some(int_num) = Util::interrupt_num(CpuInterrupt::HypervisorInjectionException) {
-        idt.set_interrupt_handler(int_num, hypervisor_injection_exception);
-    }
-    if let Some(int_num) = Util::interrupt_num(CpuInterrupt::VmmCommunicationException) {
-        idt.set_interrupt_handler(int_num, vmm_communication_exception);
-    }
-    if let Some(int_num) = Util::interrupt_num(CpuInterrupt::SecurityException) {
-        idt.set_interrupt_handler(int_num, security_exception);
-    }
+    match idt.set_interrupt_handler(CpuInterrupt::DivideByZero, divide_by_zero) {
+        Ok(_) => (),
+        Err(e) => panic!("{:?}", e),
+    };
+    match idt.set_interrupt_handler(CpuInterrupt::Debug, debug) {
+        Ok(_) => (),
+        Err(e) => panic!("{:?}", e),
+    };
+    match idt.set_interrupt_handler(CpuInterrupt::NonMaskableInterrupt, nmi) {
+        Ok(_) => (),
+        Err(e) => panic!("{:?}", e),
+    };
+    match idt.set_interrupt_handler(CpuInterrupt::Breakpoint, breakpoint) {
+        Ok(_) => (),
+        Err(e) => panic!("{:?}", e),
+    };
+    match idt.set_interrupt_handler(CpuInterrupt::Overflow, overflow) {
+        Ok(_) => (),
+        Err(e) => panic!("{:?}", e),
+    };
+    match idt.set_interrupt_handler(CpuInterrupt::BoundRangeExceeded, bound_range_exceeded) {
+        Ok(_) => (),
+        Err(e) => panic!("{:?}", e),
+    };
+    match idt.set_interrupt_handler(CpuInterrupt::InvalidOpcode, invalid_opcode) {
+        Ok(_) => (),
+        Err(e) => panic!("{:?}", e),
+    };
+    match idt.set_interrupt_handler(CpuInterrupt::DeviceUnavailable, device_unavailable) {
+        Ok(_) => (),
+        Err(e) => panic!("{:?}", e),
+    };
+    match idt.set_interrupt_handler(CpuInterrupt::InvalidTss, invalid_tss) {
+        Ok(_) => (),
+        Err(e) => panic!("{:?}", e),
+    };
+    match idt.set_interrupt_handler(CpuInterrupt::SegmentNotPresent, segment_not_present) {
+        Ok(_) => (),
+        Err(e) => panic!("{:?}", e),
+    };
+    match idt.set_interrupt_handler(CpuInterrupt::StackSegmentFault, stack_segment_fault) {
+        Ok(_) => (),
+        Err(e) => panic!("{:?}", e),
+    };
+    match idt.set_interrupt_handler(
+        CpuInterrupt::GeneralProtectionFault,
+        general_protection_fault,
+    ) {
+        Ok(_) => (),
+        Err(e) => panic!("{:?}", e),
+    };
+    match idt.set_interrupt_handler(CpuInterrupt::PageFault, page_fault) {
+        Ok(_) => (),
+        Err(e) => panic!("{:?}", e),
+    };
+    match idt.set_interrupt_handler(CpuInterrupt::FloatingPointException, fpu_exception) {
+        Ok(_) => (),
+        Err(e) => panic!("{:?}", e),
+    };
+    match idt.set_interrupt_handler(CpuInterrupt::AlignmentCheck, alignment_check) {
+        Ok(_) => (),
+        Err(e) => panic!("{:?}", e),
+    };
+    match idt.set_interrupt_handler(CpuInterrupt::MachineCheck, machine_check) {
+        Ok(_) => (),
+        Err(e) => panic!("{:?}", e),
+    };
+    match idt.set_interrupt_handler(CpuInterrupt::SimdException, simd_exception) {
+        Ok(_) => (),
+        Err(e) => panic!("{:?}", e),
+    };
+    match idt.set_interrupt_handler(
+        CpuInterrupt::VirtualizationException,
+        virtualization_exception,
+    ) {
+        Ok(_) => (),
+        Err(e) => panic!("{:?}", e),
+    };
+    match idt.set_interrupt_handler(
+        CpuInterrupt::ControlProtectionException,
+        control_protection_exception,
+    ) {
+        Ok(_) => (),
+        Err(e) => panic!("{:?}", e),
+    };
+    match idt.set_interrupt_handler(
+        CpuInterrupt::HypervisorInjectionException,
+        hypervisor_injection_exception,
+    ) {
+        Ok(_) => (),
+        Err(e) => panic!("{:?}", e),
+    };
+    match idt.set_interrupt_handler(
+        CpuInterrupt::VmmCommunicationException,
+        vmm_communication_exception,
+    ) {
+        Ok(_) => (),
+        Err(e) => panic!("{:?}", e),
+    };
+    match idt.set_interrupt_handler(CpuInterrupt::SecurityException, security_exception) {
+        Ok(_) => (),
+        Err(e) => panic!("{:?}", e),
+    };
 }
 
-pub fn divide_by_zero(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
+pub fn divide_by_zero(error_code: Option<ErrorCode>, _: CpuInterrupt, state: &mut CpuState) {
     panic!(
         "Division by zero (#DE) at {:x}\nError code: {:?}",
         state.get_ip(),
@@ -77,7 +114,7 @@ pub fn divide_by_zero(error_code: Option<ErrorCode>, _: u64, state: &mut CpuStat
     )
 }
 
-pub fn debug(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
+pub fn debug(error_code: Option<ErrorCode>, _: CpuInterrupt, state: &mut CpuState) {
     panic!(
         "Debug exception (#DB) at {:x}\nError code: {:?}",
         state.get_ip(),
@@ -85,7 +122,7 @@ pub fn debug(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
     )
 }
 
-pub fn nmi(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
+pub fn nmi(error_code: Option<ErrorCode>, _: CpuInterrupt, state: &mut CpuState) {
     panic!(
         "Non-maskable interrupt at {:x}\nError code: {:?}",
         state.get_ip(),
@@ -93,7 +130,7 @@ pub fn nmi(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
     )
 }
 
-pub fn breakpoint(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
+pub fn breakpoint(error_code: Option<ErrorCode>, _: CpuInterrupt, state: &mut CpuState) {
     panic!(
         "Breakpoint (#BP) at {:x}\nError code: {:?}",
         state.get_ip(),
@@ -101,7 +138,7 @@ pub fn breakpoint(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
     )
 }
 
-pub fn overflow(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
+pub fn overflow(error_code: Option<ErrorCode>, _: CpuInterrupt, state: &mut CpuState) {
     panic!(
         "Overflow exception (#OF) at {:x}\nError code: {:?}",
         state.get_ip(),
@@ -109,7 +146,7 @@ pub fn overflow(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
     )
 }
 
-pub fn bound_range_exceeded(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
+pub fn bound_range_exceeded(error_code: Option<ErrorCode>, _: CpuInterrupt, state: &mut CpuState) {
     panic!(
         "Bound range exceeded exception (#BR) at {:x}\nError code: {:?}",
         state.get_ip(),
@@ -117,7 +154,7 @@ pub fn bound_range_exceeded(error_code: Option<ErrorCode>, _: u64, state: &mut C
     )
 }
 
-pub fn invalid_opcode(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
+pub fn invalid_opcode(error_code: Option<ErrorCode>, _: CpuInterrupt, state: &mut CpuState) {
     panic!(
         "Invalid opcode exception (#UD) at {:x}\nError code: {:?}",
         state.get_ip(),
@@ -125,7 +162,7 @@ pub fn invalid_opcode(error_code: Option<ErrorCode>, _: u64, state: &mut CpuStat
     )
 }
 
-pub fn device_unavailable(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
+pub fn device_unavailable(error_code: Option<ErrorCode>, _: CpuInterrupt, state: &mut CpuState) {
     panic!(
         "Device unavailable exception (#NM) at {:x}\nError code: {:?}",
         state.get_ip(),
@@ -133,7 +170,7 @@ pub fn device_unavailable(error_code: Option<ErrorCode>, _: u64, state: &mut Cpu
     )
 }
 
-pub fn invalid_tss(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
+pub fn invalid_tss(error_code: Option<ErrorCode>, _: CpuInterrupt, state: &mut CpuState) {
     panic!(
         "Invalid TSS exception (#TS) at {:x}\nError code: {:?}",
         state.get_ip(),
@@ -141,7 +178,7 @@ pub fn invalid_tss(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) 
     )
 }
 
-pub fn segment_not_present(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
+pub fn segment_not_present(error_code: Option<ErrorCode>, _: CpuInterrupt, state: &mut CpuState) {
     panic!(
         "Segment not present exception (#NP) at {:x}\nError code: {:?}",
         state.get_ip(),
@@ -149,7 +186,7 @@ pub fn segment_not_present(error_code: Option<ErrorCode>, _: u64, state: &mut Cp
     )
 }
 
-pub fn stack_segment_fault(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
+pub fn stack_segment_fault(error_code: Option<ErrorCode>, _: CpuInterrupt, state: &mut CpuState) {
     panic!(
         "Stack segment fault (#SS) at {:x}\nError code: {:?}",
         state.get_ip(),
@@ -157,7 +194,11 @@ pub fn stack_segment_fault(error_code: Option<ErrorCode>, _: u64, state: &mut Cp
     )
 }
 
-pub fn general_protection_fault(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
+pub fn general_protection_fault(
+    error_code: Option<ErrorCode>,
+    _: CpuInterrupt,
+    state: &mut CpuState,
+) {
     panic!(
         "General protection fault (#GP) at {:x}\nError code: {:?}",
         state.get_ip(),
@@ -165,7 +206,7 @@ pub fn general_protection_fault(error_code: Option<ErrorCode>, _: u64, state: &m
     )
 }
 
-pub fn page_fault(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
+pub fn page_fault(error_code: Option<ErrorCode>, _: CpuInterrupt, state: &mut CpuState) {
     panic!(
         "Page fault (#PF) at {:x}\nError code: {:?}",
         state.get_ip(),
@@ -173,7 +214,7 @@ pub fn page_fault(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
     )
 }
 
-pub fn fpu_exception(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
+pub fn fpu_exception(error_code: Option<ErrorCode>, _: CpuInterrupt, state: &mut CpuState) {
     panic!(
         "Floating point exception (#MF) at {:x}\nError code: {:?}",
         state.get_ip(),
@@ -181,7 +222,7 @@ pub fn fpu_exception(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState
     )
 }
 
-pub fn alignment_check(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
+pub fn alignment_check(error_code: Option<ErrorCode>, _: CpuInterrupt, state: &mut CpuState) {
     panic!(
         "Alignment check (#AC) at {:x}\nError code: {:?}",
         state.get_ip(),
@@ -189,7 +230,7 @@ pub fn alignment_check(error_code: Option<ErrorCode>, _: u64, state: &mut CpuSta
     )
 }
 
-pub fn machine_check(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
+pub fn machine_check(error_code: Option<ErrorCode>, _: CpuInterrupt, state: &mut CpuState) {
     panic!(
         "Machine check (#MC) at {:x}\nError code: {:?}",
         state.get_ip(),
@@ -197,7 +238,7 @@ pub fn machine_check(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState
     )
 }
 
-pub fn simd_exception(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
+pub fn simd_exception(error_code: Option<ErrorCode>, _: CpuInterrupt, state: &mut CpuState) {
     panic!(
         "SIMD exception (#XM/#XF) at {:x}\nError code: {:?}",
         state.get_ip(),
@@ -205,7 +246,11 @@ pub fn simd_exception(error_code: Option<ErrorCode>, _: u64, state: &mut CpuStat
     )
 }
 
-pub fn virtualization_exception(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
+pub fn virtualization_exception(
+    error_code: Option<ErrorCode>,
+    _: CpuInterrupt,
+    state: &mut CpuState,
+) {
     panic!(
         "Virtualization exception (#VE) at {:x}\nError code: {:?}",
         state.get_ip(),
@@ -213,7 +258,11 @@ pub fn virtualization_exception(error_code: Option<ErrorCode>, _: u64, state: &m
     )
 }
 
-pub fn control_protection_exception(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
+pub fn control_protection_exception(
+    error_code: Option<ErrorCode>,
+    _: CpuInterrupt,
+    state: &mut CpuState,
+) {
     panic!(
         "Control protection exception (#CP) at {:x}\nError code: {:?}",
         state.get_ip(),
@@ -221,7 +270,11 @@ pub fn control_protection_exception(error_code: Option<ErrorCode>, _: u64, state
     )
 }
 
-pub fn hypervisor_injection_exception(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
+pub fn hypervisor_injection_exception(
+    error_code: Option<ErrorCode>,
+    _: CpuInterrupt,
+    state: &mut CpuState,
+) {
     panic!(
         "Hypervisor injection exception (#HV) at {:x}\nError code: {:?}",
         state.get_ip(),
@@ -229,7 +282,11 @@ pub fn hypervisor_injection_exception(error_code: Option<ErrorCode>, _: u64, sta
     )
 }
 
-pub fn vmm_communication_exception(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
+pub fn vmm_communication_exception(
+    error_code: Option<ErrorCode>,
+    _: CpuInterrupt,
+    state: &mut CpuState,
+) {
     panic!(
         "VMM communication exception (#VC) at {:x}\nError code: {:?}",
         state.get_ip(),
@@ -237,7 +294,7 @@ pub fn vmm_communication_exception(error_code: Option<ErrorCode>, _: u64, state:
     )
 }
 
-pub fn security_exception(error_code: Option<ErrorCode>, _: u64, state: &mut CpuState) {
+pub fn security_exception(error_code: Option<ErrorCode>, _: CpuInterrupt, state: &mut CpuState) {
     panic!(
         "Security exception (#SX) at {:x}\nError code: {:?}",
         state.get_ip(),

@@ -660,11 +660,11 @@ impl<'a> Cpu<'a> {
     pub fn interrupt_table(&self) -> &super::InterruptTable {
         &self.interrupt_table
     }
-    pub fn set_page_table(&mut self, page_table: &mut super::PageTable) {
+    pub fn set_page_table(&mut self, page_table: &'a mut super::PageTable) {
         self.page_table = page_table;
         unsafe {}
     }
-    pub fn set_interrupt_table(&mut self, interrupt_table: &mut super::InterruptTable) {
+    pub fn set_interrupt_table(&mut self, interrupt_table: &'a mut super::InterruptTable) {
         self.interrupt_table = interrupt_table;
         unsafe {
             asm!("lidt [{0}]", in(reg) &mut self.interrupt_table.0.descriptor);
@@ -678,7 +678,7 @@ impl<'a> Cpu<'a> {
     pub fn get_current_cpu() -> Option<&'a super::Cpu<'a>> {
         let out: *const super::Cpu<'a>;
         unsafe {
-            asm!("mov {0}, [gs:0]", out(reg) out);
+            asm!("mov {0}, gs:[0]", out(reg) out);
             core::mem::transmute(out)
         }
     }
