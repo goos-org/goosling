@@ -1,9 +1,65 @@
-use crate::arch::{CpuInfo, CpuInterrupt, Error};
+use crate::arch::{CpuInfo, CpuInterrupt, Result};
 use crate::memory;
 use core::arch::{asm, global_asm};
 use core::fmt::Debug;
 use core::ptr::{slice_from_raw_parts_mut, NonNull};
 use seq_macro::seq;
+
+pub(crate) fn interrupt_num(int: CpuInterrupt) -> Option<u64> {
+    match int {
+        CpuInterrupt::DivideByZero => Some(0),
+        CpuInterrupt::Debug => Some(1),
+        CpuInterrupt::NonMaskableInterrupt => Some(2),
+        CpuInterrupt::Breakpoint => Some(3),
+        CpuInterrupt::Overflow => Some(4),
+        CpuInterrupt::BoundRangeExceeded => Some(5),
+        CpuInterrupt::InvalidOpcode => Some(6),
+        CpuInterrupt::DeviceUnavailable => Some(7),
+        CpuInterrupt::InvalidTss => Some(10),
+        CpuInterrupt::SegmentNotPresent => Some(11),
+        CpuInterrupt::StackSegmentFault => Some(12),
+        CpuInterrupt::GeneralProtectionFault => Some(13),
+        CpuInterrupt::PageFault => Some(14),
+        CpuInterrupt::FloatingPointException => Some(16),
+        CpuInterrupt::AlignmentCheck => Some(17),
+        CpuInterrupt::MachineCheck => Some(18),
+        CpuInterrupt::SimdException => Some(19),
+        CpuInterrupt::VirtualizationException => Some(20),
+        CpuInterrupt::ControlProtectionException => Some(21),
+        CpuInterrupt::HypervisorInjectionException => Some(28),
+        CpuInterrupt::VmmCommunicationException => Some(29),
+        CpuInterrupt::SecurityException => Some(30),
+        CpuInterrupt::Syscall => Some(128),
+    }
+}
+pub fn interrupt_from_num(num: u64) -> Option<CpuInterrupt> {
+    match num {
+        0 => Some(CpuInterrupt::DivideByZero),
+        1 => Some(CpuInterrupt::Debug),
+        2 => Some(CpuInterrupt::NonMaskableInterrupt),
+        3 => Some(CpuInterrupt::Breakpoint),
+        4 => Some(CpuInterrupt::Overflow),
+        5 => Some(CpuInterrupt::BoundRangeExceeded),
+        6 => Some(CpuInterrupt::InvalidOpcode),
+        7 => Some(CpuInterrupt::DeviceUnavailable),
+        10 => Some(CpuInterrupt::InvalidTss),
+        11 => Some(CpuInterrupt::SegmentNotPresent),
+        12 => Some(CpuInterrupt::StackSegmentFault),
+        13 => Some(CpuInterrupt::GeneralProtectionFault),
+        14 => Some(CpuInterrupt::PageFault),
+        16 => Some(CpuInterrupt::FloatingPointException),
+        17 => Some(CpuInterrupt::AlignmentCheck),
+        18 => Some(CpuInterrupt::MachineCheck),
+        19 => Some(CpuInterrupt::SimdException),
+        20 => Some(CpuInterrupt::VirtualizationException),
+        21 => Some(CpuInterrupt::ControlProtectionException),
+        28 => Some(CpuInterrupt::HypervisorInjectionException),
+        29 => Some(CpuInterrupt::VmmCommunicationException),
+        30 => Some(CpuInterrupt::SecurityException),
+        128 => Some(CpuInterrupt::Syscall),
+        _ => None,
+    }
+}
 
 extern "x86-interrupt" {
     seq!(N in 0..=255 { fn int_~N(); });
@@ -172,7 +228,7 @@ impl PageTable {
 
 pub struct Util {}
 impl Util {
-    pub fn init() -> Result<(), Error> {
+    pub fn init() -> Result<()> {
         unsafe {
             // GDT
             let gdt = &mut *slice_from_raw_parts_mut(
@@ -226,35 +282,6 @@ impl Util {
             unsafe {
                 asm!("hlt", options(nomem, nostack));
             }
-        }
-    }
-}
-impl Util {
-    pub const fn interrupt_num(exception: CpuInterrupt) -> Option<usize> {
-        match exception {
-            CpuInterrupt::DivideByZero => Some(0),
-            CpuInterrupt::Debug => Some(1),
-            CpuInterrupt::NonMaskableInterrupt => Some(2),
-            CpuInterrupt::Breakpoint => Some(3),
-            CpuInterrupt::Overflow => Some(4),
-            CpuInterrupt::BoundRangeExceeded => Some(5),
-            CpuInterrupt::InvalidOpcode => Some(6),
-            CpuInterrupt::DeviceUnavailable => Some(7),
-            CpuInterrupt::InvalidTss => Some(10),
-            CpuInterrupt::SegmentNotPresent => Some(11),
-            CpuInterrupt::StackSegmentFault => Some(12),
-            CpuInterrupt::GeneralProtectionFault => Some(13),
-            CpuInterrupt::PageFault => Some(14),
-            CpuInterrupt::FloatingPointException => Some(16),
-            CpuInterrupt::AlignmentCheck => Some(17),
-            CpuInterrupt::MachineCheck => Some(18),
-            CpuInterrupt::SimdException => Some(19),
-            CpuInterrupt::VirtualizationException => Some(20),
-            CpuInterrupt::ControlProtectionException => Some(21),
-            CpuInterrupt::HypervisorInjectionException => Some(28),
-            CpuInterrupt::VmmCommunicationException => Some(29),
-            CpuInterrupt::SecurityException => Some(30),
-            CpuInterrupt::Syscall => Some(128),
         }
     }
 }
@@ -411,7 +438,7 @@ extern "sysv64" fn int_handle_rust(interrupt_param: &mut InterruptParam) {
                 ))),
                 _ => None,
             },
-            interrupt_param.interrupt_number,
+            CpuInterrupt::try_from(interrupt_param.interrupt_number).unwrap(),
             &mut state,
         );
         interrupt_param.ss = state.0.ss;
@@ -501,15 +528,16 @@ impl CpuState {
 
 pub struct InterruptTable {
     pub descriptor: InterruptTableDescriptor,
-    pub handlers: [Option<fn(Option<super::ErrorCode>, u64, &mut super::CpuState)>; 256],
+    pub handlers: [Option<fn(Option<super::ErrorCode>, CpuInterrupt, &mut super::CpuState)>; 256],
 }
 impl InterruptTable {
     pub fn set_interrupt_handler(
         &mut self,
-        interrupt_num: usize,
-        handler: fn(Option<super::ErrorCode>, u64, &mut super::CpuState),
-    ) {
-        self.handlers[interrupt_num] = Some(handler);
+        interrupt: CpuInterrupt,
+        handler: fn(Option<super::ErrorCode>, CpuInterrupt, &mut super::CpuState),
+    ) -> Result<()> {
+        self.handlers[u64::try_from(interrupt)? as usize] = Some(handler);
+        Ok(())
     }
 
     pub fn new() -> Self {

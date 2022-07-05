@@ -47,10 +47,10 @@ pub struct InterruptTable(native::InterruptTable);
 impl InterruptTable {
     pub fn set_interrupt_handler(
         &mut self,
-        interrupt_num: usize,
-        handler: fn(Option<ErrorCode>, u64, &mut CpuState),
+        interrupt: CpuInterrupt,
+        handler: fn(Option<ErrorCode>, CpuInterrupt, &mut CpuState),
     ) {
-        self.0.set_interrupt_handler(interrupt_num, handler);
+        self.0.set_interrupt_handler(interrupt, handler);
     }
     pub fn new() -> Self {
         InterruptTable(native::InterruptTable::new())
@@ -81,6 +81,24 @@ pub enum CpuInterrupt {
     VmmCommunicationException,
     SecurityException,
     Syscall,
+}
+impl TryFrom<CpuInterrupt> for u64 {
+    type Error = Error;
+    fn try_from(value: CpuInterrupt) -> core::result::Result<Self, Self::Error> {
+        match native::interrupt_num(value) {
+            Some(num) => Ok(num),
+            None => Err(Error::Unsupported),
+        }
+    }
+}
+impl TryFrom<u64> for CpuInterrupt {
+    type Error = Error;
+    fn try_from(value: u64) -> core::result::Result<Self, Self::Error> {
+        match native::interrupt_from_num(value) {
+            Some(num) => Ok(num),
+            None => Err(Error::Unsupported),
+        }
+    }
 }
 
 #[derive(Debug)]
