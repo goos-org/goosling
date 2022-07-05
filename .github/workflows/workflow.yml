@@ -1,7 +1,7 @@
 name: Build
 on: push
 jobs:
-  - name: "build"
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: "Make debug"
