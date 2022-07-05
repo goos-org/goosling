@@ -2,6 +2,8 @@
 
 A simple x86_64 kernel
 
+[![Build](https://github.com/goos-org/goosling/actions/workflows/workflow.yml/badge.svg?event=push)](https://github.com/goos-org/goosling/actions/workflows/workflow.yml)
+
 ## Plans
 - [x] Boot using limine
 - [x] Memory management
