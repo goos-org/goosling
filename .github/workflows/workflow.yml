@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: "Test"
-        run: ls
+        run: cat makefile | xargs echo
       - name: "Make debug"
         run: make iso
       - name: "Make release"
