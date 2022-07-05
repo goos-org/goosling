@@ -6,6 +6,8 @@ jobs:
       working-directory: ./
     runs-on: ubuntu-latest
     steps:
+      - name: "Test"
+        run: ls
       - name: "Make debug"
         run: make iso
       - name: "Make release"
