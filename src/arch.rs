@@ -47,10 +47,10 @@ pub struct InterruptTable(native::InterruptTable);
 impl InterruptTable {
     pub fn set_interrupt_handler(
         &mut self,
-        interrupt_num: usize,
-        handler: fn(Option<ErrorCode>, u64, &mut CpuState),
-    ) {
-        self.0.set_interrupt_handler(interrupt_num, handler);
+        interrupt: CpuInterrupt,
+        handler: fn(Option<ErrorCode>, CpuInterrupt, &mut CpuState),
+    ) -> Result<()> {
+        self.0.set_interrupt_handler(interrupt, handler)
     }
     pub fn new() -> Self {
         InterruptTable(native::InterruptTable::new())
@@ -81,6 +81,24 @@ pub enum CpuInterrupt {
     VmmCommunicationException,
     SecurityException,
     Syscall,
+}
+impl TryFrom<CpuInterrupt> for u64 {
+    type Error = Error;
+    fn try_from(value: CpuInterrupt) -> core::result::Result<Self, Self::Error> {
+        match native::interrupt_num(value) {
+            Some(num) => Ok(num),
+            None => Err(Error::Unsupported),
+        }
+    }
+}
+impl TryFrom<u64> for CpuInterrupt {
+    type Error = Error;
+    fn try_from(value: u64) -> core::result::Result<Self, Self::Error> {
+        match native::interrupt_from_num(value) {
+            Some(num) => Ok(num),
+            None => Err(Error::Unsupported),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -119,10 +137,10 @@ impl<'a> Cpu<'a> {
     pub fn interrupt_table(&self) -> &InterruptTable {
         self.0.interrupt_table()
     }
-    pub fn set_page_table(&mut self, page_table: &mut PageTable) {
+    pub fn set_page_table(&mut self, page_table: &'a mut PageTable) {
         self.0.set_page_table(page_table)
     }
-    pub fn set_interrupt_table(&mut self, interrupt_table: &mut InterruptTable) {
+    pub fn set_interrupt_table(&mut self, interrupt_table: &'a mut InterruptTable) {
         self.0.set_interrupt_table(interrupt_table)
     }
     pub fn set_as_current_cpu(&self) {
