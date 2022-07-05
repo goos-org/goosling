@@ -4,6 +4,8 @@ use crate::arch::native::ErrorCode;
 #[cfg(target_arch = "x86_64")]
 use x86_64 as native;
 
+type Result<T> = core::result::Result<T, Error>;
+
 #[repr(transparent)]
 pub struct PageTable(native::PageTable);
 impl PageTable {
