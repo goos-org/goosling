@@ -2,12 +2,10 @@ name: Build
 on: push
 jobs:
   build:
-    env:
-      working-directory: ./
     runs-on: ubuntu-latest
     steps:
-      - name: "Test"
-        run: cat makefile | xargs echo
+      - name: Checkout repo
+        uses: actions/checkout@v3
       - name: "Make debug"
         run: make iso
       - name: "Make release"
