@@ -1,3 +1,5 @@
+use crate::arch::Cpu;
+use alloc::collections::LinkedList;
 use core::alloc::{GlobalAlloc, Layout};
 use core::ptr::slice_from_raw_parts_mut;
 
@@ -17,7 +19,7 @@ impl BitmapAllocator {
             free: 0,
         }
     }
-    pub fn alloc<T>(&mut self) -> Option<&mut T> {
+    pub fn alloc(&mut self) -> Option<&mut u8> {
         let bitmap = unsafe { &mut *self.bitmap };
         for (i, item) in bitmap.iter_mut().enumerate() {
             if *item != 0xff {
@@ -25,7 +27,7 @@ impl BitmapAllocator {
                     if *item & (1 << j) == 0 {
                         *item |= 1 << j;
                         self.free -= 1;
-                        return Some(unsafe { &mut *(((i * 8 + j) * 4096) as *mut T) });
+                        return Some(unsafe { &mut *(((i * 8 + j) * 4096) as *mut u8) });
                     }
                 }
             }
@@ -118,7 +120,7 @@ unsafe impl GlobalAlloc for GlobalAllocator {
             panic!("alloc size too large");
         } else {
             let allocator = ALLOCATOR.as_mut().unwrap();
-            allocator.alloc().unwrap() as *mut u8
+            allocator.alloc().unwrap()
         }
     }
 
@@ -131,4 +133,49 @@ unsafe impl GlobalAlloc for GlobalAllocator {
 #[alloc_error_handler]
 fn error_handler(_: Layout) -> ! {
     panic!("Allocator error");
+}
+
+pub type KernelHeap = Heap<0xFFFF_8000_0000_0000, 0xFFFF_FFFF_FFFF_FFFF>;
+
+pub struct Heap<const BASE: usize, const LEN: usize> {
+    heap_len: usize,
+    allocator: BitmapAllocator,
+}
+impl<const BASE: usize, const LEN: usize> Heap<BASE, LEN> {
+    pub fn new(allocator: BitmapAllocator) -> Self {
+        Heap {
+            heap_len: 0,
+            allocator,
+        }
+    }
+    pub fn alloc<T>(&mut self) -> Option<&mut T> {
+        let begin = self.heap_len + BASE;
+        let size = (core::mem::size_of::<T>() + 4095) / 4096 * 4096; // Align to a page, rounding up
+        let end = begin + size;
+        if end > LEN {
+            return None;
+        }
+        self.heap_len += size;
+        let page_table = Cpu::get_current_cpu().unwrap().page_table();
+        for i in begin / 4096..end / 4096 {
+            let page = self.allocator.alloc().unwrap() as *mut _ as usize;
+
+            page_table.map_page(i * 4096, page);
+        }
+        Some(unsafe { &mut *(begin as *mut T) })
+    }
+    pub fn free<T>(&mut self, addr: &mut T) {
+        let begin = addr as *mut _ as usize;
+        let size = (core::mem::size_of::<T>() + 4095) / 4096 * 4096; // Align to a page, rounding up
+        let end = begin + size;
+        if end > LEN {
+            return;
+        }
+        let page_table = Cpu::get_current_cpu().unwrap().page_table();
+        for i in begin / 4096..end / 4096 {
+            self.allocator
+                .free(page_table.get_physical_addr(i * 4096).unwrap());
+            page_table.unmap_page(i * 4096);
+        }
+    }
 }
