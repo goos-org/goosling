@@ -232,7 +232,7 @@ impl Util {
         unsafe {
             // GDT
             let gdt = &mut *slice_from_raw_parts_mut(
-                memory::ALLOCATOR.as_mut().unwrap().alloc().unwrap() as *mut usize,
+                memory::ALLOCATOR.as_mut().unwrap().alloc().unwrap() as *mut u8 as *mut usize,
                 512,
             );
             gdt[0] = 0x00; // Null descriptor
@@ -542,8 +542,10 @@ impl InterruptTable {
 
     pub fn new() -> Self {
         let allocator = unsafe { memory::ALLOCATOR.as_mut().unwrap() };
-        let data =
-            slice_from_raw_parts_mut(allocator.alloc().unwrap() as *mut InterruptDescriptor, 4096);
+        let data = slice_from_raw_parts_mut(
+            allocator.alloc().unwrap() as *mut u8 as *mut InterruptDescriptor,
+            4096,
+        );
         unsafe {
             core::ptr::write_bytes(data as *mut InterruptDescriptor, 0, 4096);
         }
@@ -654,7 +656,7 @@ impl<'a> Cpu<'a> {
     pub fn info(&self) -> &CpuInfo {
         &self.info
     }
-    pub fn page_table(&self) -> &super::PageTable {
+    pub fn page_table(&mut self) -> &mut super::PageTable {
         self.page_table
     }
     pub fn interrupt_table(&self) -> &super::InterruptTable {
@@ -675,7 +677,7 @@ impl<'a> Cpu<'a> {
             asm!("wrgsbase {0}", in(reg) self as *const Self);
         }
     }
-    pub fn get_current_cpu() -> Option<&'a super::Cpu<'a>> {
+    pub fn get_current_cpu() -> Option<&'a mut super::Cpu<'a>> {
         let out: *const super::Cpu<'a>;
         unsafe {
             asm!("mov {0}, gs:[0]", out(reg) out);

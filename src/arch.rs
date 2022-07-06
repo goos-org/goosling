@@ -131,7 +131,7 @@ impl<'a> Cpu<'a> {
     pub fn info(&self) -> &CpuInfo {
         self.0.info()
     }
-    pub fn page_table(&self) -> &PageTable {
+    pub fn page_table(&mut self) -> &mut PageTable {
         self.0.page_table()
     }
     pub fn interrupt_table(&self) -> &InterruptTable {
@@ -146,7 +146,7 @@ impl<'a> Cpu<'a> {
     pub fn set_as_current_cpu(&self) {
         self.0.set_as_current_cpu()
     }
-    pub fn get_current_cpu() -> Option<&'a Cpu<'a>> {
+    pub fn get_current_cpu() -> Option<&'a mut Cpu<'a>> {
         native::Cpu::get_current_cpu()
     }
 }
