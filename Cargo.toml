@@ -8,7 +8,8 @@ edition = "2021"
 [dependencies]
 limine = "0.1.6"
 numtoa = "0.2.4"
-spin = "0.9.3"
+seq-macro = "0.3.0"
+spin = {version = "0.9.3", features = ["mutex", "ticket_mutex"]}
 static_assertions = "1.1.0"
 
 [profile.release]
