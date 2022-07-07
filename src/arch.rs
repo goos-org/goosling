@@ -129,8 +129,15 @@ pub struct CpuInfo {
     pub cpu_id: usize,
 }
 
-pub struct Cpu<'a>(native::Cpu<'a>);
+pub struct Cpu<'a>(&'a mut native::Cpu<'a>);
 impl<'a> Cpu<'a> {
+    pub fn new(
+        page_table: &'a mut PageTable,
+        interrupt_table: &'a mut InterruptTable,
+        cpu_info: CpuInfo,
+    ) -> Self {
+        Cpu(native::Cpu::new(page_table, interrupt_table, cpu_info))
+    }
     pub fn info(&self) -> &CpuInfo {
         self.0.info()
     }

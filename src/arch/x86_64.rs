@@ -1,7 +1,9 @@
 use crate::arch::{CpuInfo, CpuInterrupt, Result};
 use crate::memory;
+use alloc::boxed::Box;
 use core::arch::{asm, global_asm};
 use core::fmt::Debug;
+use core::marker::PhantomData;
 use core::ptr::{slice_from_raw_parts_mut, NonNull};
 use seq_macro::seq;
 
@@ -650,25 +652,43 @@ impl ErrorCode {
 }
 
 pub struct Cpu<'a> {
-    pointer: *const Cpu<'a>,
+    pointer: Option<&'a mut Self>,
     info: CpuInfo,
-    page_table: &'a mut super::PageTable,
+    page_table: PhantomData<&'a mut super::PageTable>,
     interrupt_table: &'a mut super::InterruptTable,
 }
 impl<'a> Cpu<'a> {
+    pub fn new(
+        page_table: &'a mut super::PageTable,
+        interrupt_table: &'a mut super::InterruptTable,
+        cpu_info: CpuInfo,
+    ) -> Self {
+        let this = Self {
+            pointer: None,
+            info: cpu_info,
+            page_table: PhantomData,
+            interrupt_table,
+        };
+        this.set_page_table(page_table);
+        this
+    }
     pub fn info(&self) -> &CpuInfo {
         &self.info
     }
     pub fn page_table(&mut self) -> &mut super::PageTable {
-        self.page_table
+        let page_table: *mut super::PageTable;
+        unsafe {
+            asm!("mov {0}, cr3", out(reg) page_table);
+            &mut *page_table
+        }
     }
     pub fn interrupt_table(&self) -> &super::InterruptTable {
-        &self.interrupt_table
+        self.interrupt_table
     }
-    pub fn set_page_table(&mut self, page_table: &'a mut super::PageTable) {
-        self.page_table = page_table;
+    pub fn set_page_table(&self, page_table: &'a mut super::PageTable) {
+        let page_table_ptr = page_table as *mut super::PageTable;
         unsafe {
-            asm!("mov {0}, cr3", in(reg) page_table);
+            asm!("mov {0}, cr3", in(reg) page_table_ptr);
         }
     }
     pub fn set_interrupt_table(&mut self, interrupt_table: &'a mut super::InterruptTable) {
@@ -677,16 +697,31 @@ impl<'a> Cpu<'a> {
             asm!("lidt [{0}]", in(reg) &mut self.interrupt_table.0.descriptor);
         }
     }
-    pub fn set_as_current_cpu(&self) {
+    pub fn set_as_current_cpu(&'a mut self) {
+        self.pointer = Some(self);
         unsafe {
-            asm!("wrgsbase {0}", in(reg) self as *const Self);
+            asm!("wrgsbase {0}", in(reg) self.pointer.unwrap());
         }
     }
+    pub fn release_current_cpu(&'a mut self) {
+        unsafe {
+            asm!("wrgsbase {0}", in(reg) 0);
+        }
+        self.pointer = None;
+    }
     pub fn get_current_cpu() -> Option<&'a mut super::Cpu<'a>> {
-        let out: *const super::Cpu<'a>;
+        let out: *mut super::Cpu<'a>;
         unsafe {
             asm!("mov {0}, gs:[0]", out(reg) out);
             core::mem::transmute(out)
+        }
+    }
+}
+impl<'a> Drop for Cpu<'a> {
+    fn drop(&mut self) {
+        unsafe {
+            asm!("wrgsbase {0}", in(reg) 0);
+            asm!("mov {0}, cr3", in(reg) 0);
         }
     }
 }
