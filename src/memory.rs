@@ -1,4 +1,5 @@
 use crate::arch::Cpu;
+use crate::PageTable;
 use alloc::collections::LinkedList;
 use core::alloc::{GlobalAlloc, Layout};
 use core::ptr::slice_from_raw_parts_mut;
@@ -140,12 +141,14 @@ pub type KernelHeap = Heap<0xFFFF_8000_0000_0000, 0xFFFF_FFFF_FFFF_FFFF>;
 pub struct Heap<const BASE: usize, const LEN: usize> {
     heap_len: usize,
     allocator: BitmapAllocator,
+    page_table: PageTable,
 }
 impl<const BASE: usize, const LEN: usize> Heap<BASE, LEN> {
-    pub fn new(allocator: BitmapAllocator) -> Self {
+    pub fn new(allocator: BitmapAllocator, page_table: PageTable) -> Self {
         Heap {
             heap_len: 0,
             allocator,
+            page_table,
         }
     }
     pub fn alloc<T>(&mut self) -> Option<&mut T> {
@@ -156,11 +159,9 @@ impl<const BASE: usize, const LEN: usize> Heap<BASE, LEN> {
             return None;
         }
         self.heap_len += size;
-        let page_table = Cpu::get_current_cpu().unwrap().page_table();
         for i in begin / 4096..end / 4096 {
             let page = self.allocator.alloc().unwrap() as *mut _ as usize;
-
-            page_table.map_page(i * 4096, page);
+            self.page_table.map_page(i * 4096, page);
         }
         Some(unsafe { &mut *(begin as *mut T) })
     }
@@ -171,11 +172,10 @@ impl<const BASE: usize, const LEN: usize> Heap<BASE, LEN> {
         if end > LEN {
             return;
         }
-        let page_table = Cpu::get_current_cpu().unwrap().page_table();
         for i in begin / 4096..end / 4096 {
             self.allocator
-                .free(page_table.get_physical_addr(i * 4096).unwrap());
-            page_table.unmap_page(i * 4096);
+                .free(self.page_table.get_physical_addr(i * 4096).unwrap());
+            self.page_table.unmap_page(i * 4096);
         }
     }
 }
