@@ -9,6 +9,9 @@ type Result<T> = core::result::Result<T, Error>;
 #[repr(transparent)]
 pub struct PageTable(native::PageTable);
 impl PageTable {
+    pub fn new() -> Self {
+        PageTable(native::PageTable::new())
+    }
     pub fn map_page(&mut self, virtual_addr: usize, physical_addr: usize) {
         self.0.map_page(virtual_addr, physical_addr);
     }

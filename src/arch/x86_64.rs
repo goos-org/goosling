@@ -124,6 +124,9 @@ pub struct PageTable {
     pml4: [u64; 512],
 }
 impl PageTable {
+    pub fn new() -> Self {
+        PageTable { pml4: [0; 512] }
+    }
     pub fn map_page(&mut self, virtual_addr: usize, physical_addr: usize) {
         unsafe {
             let pml4_index = virtual_addr >> 39;
@@ -664,7 +667,9 @@ impl<'a> Cpu<'a> {
     }
     pub fn set_page_table(&mut self, page_table: &'a mut super::PageTable) {
         self.page_table = page_table;
-        unsafe {}
+        unsafe {
+            asm!("mov {0}, cr3", in(reg) page_table);
+        }
     }
     pub fn set_interrupt_table(&mut self, interrupt_table: &'a mut super::InterruptTable) {
         self.interrupt_table = interrupt_table;
