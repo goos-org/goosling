@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 limine = "0.1.6"
 numtoa = "0.2.4"
-seq-macro = "0.3.0"
+spin = "0.9.3"
 static_assertions = "1.1.0"
 
 [profile.release]
