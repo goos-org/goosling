@@ -1,6 +1,7 @@
 mod x86_64;
 
 use core::fmt::Debug;
+use core::ops::{Deref, DerefMut};
 #[cfg(target_arch = "x86_64")]
 use x86_64 as native;
 
@@ -129,7 +130,7 @@ pub struct CpuInfo {
     pub cpu_id: usize,
 }
 
-pub struct Cpu<'a>(&'a mut native::Cpu<'a>);
+pub struct Cpu<'a>(native::Cpu<'a>);
 impl<'a> Cpu<'a> {
     pub fn new(
         page_table: &'a mut PageTable,
@@ -153,10 +154,26 @@ impl<'a> Cpu<'a> {
     pub fn set_interrupt_table(&mut self, interrupt_table: &'a mut InterruptTable) {
         self.0.set_interrupt_table(interrupt_table)
     }
-    pub fn set_as_current_cpu(&self) {
+    pub fn set_as_current_cpu(self) {
         self.0.set_as_current_cpu()
     }
-    pub fn get_current_cpu() -> Option<&'a mut Cpu<'a>> {
+    pub fn release_current_cpu() -> Option<Cpu<'a>> {
+        native::Cpu::release_current_cpu()
+    }
+    pub fn get_current_cpu() -> Option<CpuGuard<'a>> {
         native::Cpu::get_current_cpu()
+    }
+}
+
+pub struct CpuGuard<'a>(native::CpuGuard<'a>);
+impl<'a> Deref for CpuGuard<'a> {
+    type Target = Cpu<'a>;
+    fn deref(&self) -> &Cpu<'a> {
+        self.0.deref()
+    }
+}
+impl<'a> DerefMut for CpuGuard<'a> {
+    fn deref_mut(&mut self) -> &mut Cpu<'a> {
+        self.0.deref_mut()
     }
 }

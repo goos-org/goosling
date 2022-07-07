@@ -4,8 +4,10 @@ use alloc::boxed::Box;
 use core::arch::{asm, global_asm};
 use core::fmt::Debug;
 use core::marker::PhantomData;
+use core::ops::{Deref, DerefMut};
 use core::ptr::{slice_from_raw_parts_mut, NonNull};
 use seq_macro::seq;
+use spin::mutex::{TicketMutex, TicketMutexGuard};
 
 pub(crate) fn interrupt_num(int: CpuInterrupt) -> Option<u64> {
     match int {
@@ -652,7 +654,8 @@ impl ErrorCode {
 }
 
 pub struct Cpu<'a> {
-    pointer: Option<&'a mut Self>,
+    pointer: Option<NonNull<super::Cpu<'a>>>,
+    mutex: TicketMutex<()>,
     info: CpuInfo,
     page_table: PhantomData<&'a mut super::PageTable>,
     interrupt_table: &'a mut super::InterruptTable,
@@ -664,6 +667,7 @@ impl<'a> Cpu<'a> {
         cpu_info: CpuInfo,
     ) -> Self {
         let this = Self {
+            mutex: TicketMutex::new(()),
             pointer: None,
             info: cpu_info,
             page_table: PhantomData,
@@ -697,23 +701,31 @@ impl<'a> Cpu<'a> {
             asm!("lidt [{0}]", in(reg) &mut self.interrupt_table.0.descriptor);
         }
     }
-    pub fn set_as_current_cpu(&'a mut self) {
-        self.pointer = Some(self);
+    pub fn set_as_current_cpu(self) {
+        let ptr = Box::into_raw(Box::new(self));
         unsafe {
-            asm!("wrgsbase {0}", in(reg) self.pointer.unwrap());
+            (&mut *ptr).pointer = NonNull::new(core::mem::transmute(ptr));
+            asm!("wrgsbase {0}", in(reg) ptr);
         }
     }
-    pub fn release_current_cpu(&'a mut self) {
+    pub fn release_current_cpu() -> Option<super::Cpu<'a>> {
+        let mut cpu = Self::get_current_cpu()?;
         unsafe {
             asm!("wrgsbase {0}", in(reg) 0);
         }
-        self.pointer = None;
+        let cpu = cpu.deref_mut();
+        let mut cpu_box = unsafe { Box::from_raw(cpu as *mut super::Cpu) };
+        (*cpu_box).0.pointer = None;
+        Some(*cpu_box)
     }
-    pub fn get_current_cpu() -> Option<&'a mut super::Cpu<'a>> {
+    pub fn get_current_cpu() -> Option<super::CpuGuard<'a>> {
         let out: *mut super::Cpu<'a>;
         unsafe {
             asm!("mov {0}, gs:[0]", out(reg) out);
-            core::mem::transmute(out)
+            let cpu =
+                core::mem::transmute::<*mut super::Cpu, Option<NonNull<super::Cpu<'a>>>>(out)?;
+            let guard = (&*out).0.mutex.lock();
+            Some(super::CpuGuard(CpuGuard { cpu, guard }))
         }
     }
 }
@@ -723,5 +735,21 @@ impl<'a> Drop for Cpu<'a> {
             asm!("wrgsbase {0}", in(reg) 0);
             asm!("mov {0}, cr3", in(reg) 0);
         }
+    }
+}
+
+pub struct CpuGuard<'a> {
+    cpu: NonNull<super::Cpu<'a>>,
+    guard: TicketMutexGuard<'a, ()>,
+}
+impl<'a> Deref for CpuGuard<'a> {
+    type Target = super::Cpu<'a>;
+    fn deref(&self) -> &'a Self::Target {
+        unsafe { self.cpu.as_ref() }
+    }
+}
+impl<'a> DerefMut for CpuGuard<'a> {
+    fn deref_mut(&mut self) -> &'a mut Self::Target {
+        unsafe { self.cpu.as_mut() }
     }
 }
