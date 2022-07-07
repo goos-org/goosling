@@ -137,7 +137,5 @@ extern "C" fn main() -> ! {
     let mut idt = InterruptTable::new();
     exceptions::set_handlers(&mut idt);
 
-    let value: usize = unsafe { *(core::ptr::null()) };
-
     Util::halt_loop();
 }
