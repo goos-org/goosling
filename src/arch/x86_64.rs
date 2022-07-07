@@ -704,7 +704,7 @@ impl<'a> Cpu<'a> {
     pub fn set_as_current_cpu(self) {
         let ptr = Box::into_raw(Box::new(self));
         unsafe {
-            (&mut *ptr).pointer = NonNull::new(core::mem::transmute(ptr));
+            (*ptr).pointer = NonNull::new(core::mem::transmute(ptr));
             asm!("wrgsbase {0}", in(reg) ptr);
         }
     }
@@ -724,7 +724,7 @@ impl<'a> Cpu<'a> {
             asm!("mov {0}, gs:[0]", out(reg) out);
             let cpu =
                 core::mem::transmute::<*mut super::Cpu, Option<NonNull<super::Cpu<'a>>>>(out)?;
-            let guard = (&*out).0.mutex.lock();
+            let guard = (*out).0.mutex.lock();
             Some(super::CpuGuard(CpuGuard { cpu, guard }))
         }
     }
