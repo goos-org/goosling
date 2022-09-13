@@ -4,8 +4,9 @@
 use core::panic::PanicInfo;
 use limine::LimineFramebufferRequest;
 use rand::prelude::SmallRng;
-use rand::rngs::mock::StepRng;
 use rand::{Rng, SeedableRng};
+
+mod memory;
 
 static FRAMEBUFFER_REQUEST: LimineFramebufferRequest = LimineFramebufferRequest::new(0);
 
