@@ -18,7 +18,6 @@ use x86_64::structures::paging::{OffsetPageTable, PageTable};
 use x86_64::VirtAddr;
 
 mod debug;
-mod graphics;
 mod memory;
 mod sync;
 
