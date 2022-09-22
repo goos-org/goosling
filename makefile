@@ -6,7 +6,7 @@ all-hdd: goosling.hdd
 
 .PHONY: run
 run: goosling.iso
-	qemu-system-x86_64 -M q35 -m 2G -cdrom goosling.iso -boot d
+	qemu-system-x86_64 -M q35 -m 2G -cdrom goosling.iso -boot d -serial stdio
 
 .PHONY: run-uefi
 run-uefi: ovmf-x64 goosling.iso
